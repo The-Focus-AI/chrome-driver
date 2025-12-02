@@ -18,15 +18,15 @@
     "perl"
   ],
   "skills": [
-    "skills/browser-automation"
+    "./skills/browser-automation"
   ],
   "commands": [
-    "commands/browser.md",
-    "commands/screenshot.md",
-    "commands/pdf.md",
-    "commands/extract.md"
+    "./commands/browser.md",
+    "./commands/screenshot.md",
+    "./commands/pdf.md",
+    "./commands/extract.md"
   ],
   "hooks": [
-    "hooks/hooks.json"
+    "./hooks/hooks.json"
   ]
 }
