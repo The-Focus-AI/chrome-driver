@@ -64,7 +64,18 @@ Done! Here's what I've created:
 
 ## Start a new claude
 
-Just 
+To keep everything fresh, lets start up a new claude, and
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+And then:
+
+> do the most important thing
+
+And off it goes:
+
 
 ## Appendix: Results CDP
 

@@ -1,0 +1,37 @@
+# Beads database (JSONL is tracked)
+.beads/beads.db
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Perl test output
+*.tmp
+*.bak
+*~
+.prove
+
+# Chrome/Browser artifacts
+chrome-test-profile/
+/tmp/chrome-*/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Test artifacts
+t/tmp/
+test-*.png
+test-*.pdf
+test-*.jpg
+
+# Temporary files
+*.log
+nohup.out
