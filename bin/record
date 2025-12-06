@@ -1,0 +1,187 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Getopt::Long;
+use MIME::Base64 ();
+use File::Path qw(make_path);
+
+use ChromeDriver;
+use Page::Navigation;
+use Visual::Capture;
+
+# Record screencast frames from a web page
+#
+# Usage: record URL OUTPUT_DIR [OPTIONS]
+#   record https://example.com /tmp/frames --duration=5
+#   record https://example.com /tmp/frames --count=30 --format=png
+
+my $duration = 5;      # Recording duration in seconds
+my $count;             # Or specify exact frame count
+my $format = 'jpeg';   # jpeg or png
+my $quality = 80;      # Quality for jpeg
+my $max_width;         # Max frame width
+my $max_height;        # Max frame height
+my $fps = 10;          # Approximate frames per second
+my $help = 0;
+
+GetOptions(
+    'duration=i'   => \$duration,
+    'count=i'      => \$count,
+    'format=s'     => \$format,
+    'quality=i'    => \$quality,
+    'max-width=i'  => \$max_width,
+    'max-height=i' => \$max_height,
+    'fps=i'        => \$fps,
+    'help'         => \$help,
+) or die "Error in command line arguments\n";
+
+if ($help || @ARGV < 2) {
+    print <<'USAGE';
+Usage: record URL OUTPUT_DIR [OPTIONS]
+
+Record screencast frames from a web page.
+
+Arguments:
+  URL          Web page URL to record
+  OUTPUT_DIR   Directory to save frames (created if needed)
+
+Options:
+  --duration=SECONDS   Recording duration (default: 5)
+  --count=N            Exact number of frames to capture
+  --format=FORMAT      Frame format: jpeg (default), png
+  --quality=N          JPEG quality 0-100 (default: 80)
+  --max-width=N        Maximum frame width
+  --max-height=N       Maximum frame height
+  --fps=N              Approximate frames per second (default: 10)
+  --help               Show this help
+
+Examples:
+  # Record 5 seconds of frames
+  record https://example.com /tmp/frames
+
+  # Record 30 frames as PNG
+  record https://example.com /tmp/frames --count=30 --format=png
+
+  # Record with smaller frame size
+  record https://example.com /tmp/frames --max-width=800 --max-height=600
+
+Output:
+  Frames are saved as frame-0001.jpg, frame-0002.jpg, etc.
+  Use ffmpeg to convert to video:
+    ffmpeg -framerate 10 -i frame-%04d.jpg -c:v libx264 output.mp4
+
+Notes:
+  - Chrome must support Page.startScreencast (most versions do)
+  - Higher FPS may not be achievable depending on page complexity
+  - Use --max-width/--max-height to reduce data volume
+USAGE
+    exit($help ? 0 : 1);
+}
+
+my $url = shift @ARGV;
+my $output_dir = shift @ARGV;
+
+# Create output directory
+unless (-d $output_dir) {
+    make_path($output_dir) or die "Cannot create directory: $output_dir: $!\n";
+}
+
+# Validate format
+unless ($format =~ /^(jpeg|png)$/) {
+    die "Invalid format: $format (use jpeg or png)\n";
+}
+
+my $ext = $format eq 'jpeg' ? 'jpg' : 'png';
+
+# Connect to Chrome
+my $chrome = ChromeDriver->new(headless => 1, timeout => 60);
+$chrome->connect_to_page() or die "Failed to connect: " . $chrome->error . "\n";
+
+my $nav = Page::Navigation->new(chrome => $chrome);
+my $capture = Visual::Capture->new(chrome => $chrome);
+
+# Navigate to URL
+print "Navigating to: $url\n";
+$nav->navigate($url) or die "Failed to navigate: " . $nav->error . "\n";
+
+# Enable Page domain for screencast
+$chrome->enable('Page');
+
+# Calculate frame interval (every_nth_frame)
+# Chrome sends frames at ~60fps, so every_nth controls sampling
+my $every_nth = int(60 / $fps);
+$every_nth = 1 if $every_nth < 1;
+
+# Start screencast
+print "Starting screencast (format=$format, quality=$quality, every_nth=$every_nth)\n";
+
+my %screencast_opts = (
+    format    => $format,
+    quality   => $quality,
+    every_nth => $every_nth,
+);
+$screencast_opts{max_width} = $max_width if defined $max_width;
+$screencast_opts{max_height} = $max_height if defined $max_height;
+
+$capture->start_screencast(%screencast_opts)
+    or die "Failed to start screencast: " . $capture->error . "\n";
+
+# Collect frames
+my @frames;
+my $frame_count = 0;
+my $target_count = $count // ($duration * $fps);
+
+print "Recording $target_count frames...\n";
+
+# Subscribe to frame events
+my $handler_id = $chrome->on('Page.screencastFrame', sub {
+    my ($params) = @_;
+
+    $frame_count++;
+
+    # Acknowledge frame immediately
+    $chrome->send('Page.screencastFrameAck', {
+        sessionId => $params->{sessionId},
+    });
+
+    # Save frame to file
+    my $filename = sprintf("frame-%04d.$ext", $frame_count);
+    my $filepath = "$output_dir/$filename";
+
+    my $binary = MIME::Base64::decode_base64($params->{data});
+    if (open(my $fh, '>', $filepath)) {
+        binmode($fh);
+        print $fh $binary;
+        close($fh);
+        print "\r  Captured: $frame_count / $target_count frames";
+    } else {
+        warn "\nFailed to write: $filepath\n";
+    }
+});
+
+# Poll for frames until we have enough
+my $start_time = time();
+my $max_time = $start_time + ($duration || 30);
+
+while ($frame_count < $target_count && time() < $max_time) {
+    $chrome->poll(0.05);
+}
+
+print "\n";
+
+# Stop screencast
+$capture->stop_screencast();
+
+# Unsubscribe from events
+$chrome->off('Page.screencastFrame', $handler_id);
+
+print "Captured $frame_count frames to: $output_dir/\n";
+
+if ($frame_count > 0) {
+    print "\nTo create video with ffmpeg:\n";
+    print "  ffmpeg -framerate $fps -i '$output_dir/frame-%04d.$ext' -c:v libx264 -pix_fmt yuv420p output.mp4\n";
+}
+
+$chrome->quit();

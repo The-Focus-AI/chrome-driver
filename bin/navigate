@@ -1,0 +1,122 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Getopt::Long;
+
+use ChromeDriver;
+use Page::Navigation;
+use DOM::Elements;
+use JS::Execute;
+
+# Navigate to a URL and optionally interact with the page
+#
+# Usage: navigate URL [OPTIONS]
+#   navigate https://example.com                     # just navigate
+#   navigate https://example.com --wait-for="h1"    # wait for element
+#   navigate https://example.com --click="button"   # click an element
+#   navigate https://example.com --type="input#q=hello"  # type in field
+
+my $wait_for = '';
+my $click = '';
+my $type = '';
+my $eval = '';
+my $timeout = 30;
+my $help = 0;
+
+GetOptions(
+    'wait-for=s' => \$wait_for,
+    'click=s'    => \$click,
+    'type=s'     => \$type,
+    'eval=s'     => \$eval,
+    'timeout=i'  => \$timeout,
+    'help'       => \$help,
+) or die "Error in command line arguments\n";
+
+if ($help || !@ARGV) {
+    print <<'USAGE';
+Usage: navigate URL [OPTIONS]
+
+Arguments:
+  URL          Web page URL to navigate to
+
+Options:
+  --wait-for=SELECTOR   Wait for element matching CSS selector
+  --click=SELECTOR      Click element matching CSS selector
+  --type=SELECTOR=TEXT  Type text into element (format: selector=text)
+  --eval=JAVASCRIPT     Execute JavaScript and print result
+  --timeout=SECONDS     Timeout in seconds (default: 30)
+  --help                Show this help
+
+Examples:
+  navigate https://example.com
+  navigate https://example.com --wait-for="#content"
+  navigate https://example.com --click="button.submit"
+  navigate https://google.com --type="input[name=q]=hello world" --click="input[type=submit]"
+  navigate https://example.com --eval="document.title"
+
+Notes:
+  - Actions are executed in order: navigate -> wait-for -> type -> click -> eval
+  - For complex interactions, use multiple navigate calls or the Perl API directly
+USAGE
+    exit($help ? 0 : 1);
+}
+
+my $url = shift @ARGV;
+
+# Connect to Chrome
+my $chrome = ChromeDriver->new(headless => 1, timeout => $timeout);
+$chrome->connect_to_page() or die "Failed to connect: " . $chrome->error . "\n";
+
+my $nav = Page::Navigation->new(chrome => $chrome, timeout => $timeout);
+my $dom = DOM::Elements->new(chrome => $chrome);
+my $js = JS::Execute->new(chrome => $chrome);
+
+# Navigate to URL
+print "Navigating to: $url\n";
+$nav->navigate($url) or die "Failed to navigate: " . $nav->error . "\n";
+
+my $current = $nav->current_url();
+print "Current URL: $current\n";
+
+# Wait for element if requested
+if ($wait_for) {
+    print "Waiting for: $wait_for\n";
+    $nav->wait_for_selector($wait_for, timeout => $timeout)
+        or die "Timeout waiting for: $wait_for\n";
+    print "Found: $wait_for\n";
+}
+
+# Type into element if requested
+if ($type) {
+    my ($selector, $text) = split /=/, $type, 2;
+    unless ($text) {
+        die "Invalid --type format. Use: --type='selector=text'\n";
+    }
+    print "Typing into: $selector\n";
+    $dom->type($selector, $text) or die "Failed to type: " . ($dom->error // 'element not found') . "\n";
+}
+
+# Click element if requested
+if ($click) {
+    print "Clicking: $click\n";
+    $dom->click($click) or die "Failed to click: " . ($dom->error // 'element not found') . "\n";
+
+    # Brief wait for any navigation/effects
+    select(undef, undef, undef, 0.5);
+}
+
+# Evaluate JavaScript if requested
+if ($eval) {
+    print "Evaluating: $eval\n";
+    my $result = $js->evaluate($eval);
+    if (defined $result) {
+        print "Result: $result\n";
+    } else {
+        print "Result: (undefined)\n";
+    }
+}
+
+print "Done.\n";
+$chrome->quit();

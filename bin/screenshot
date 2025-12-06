@@ -1,0 +1,107 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Getopt::Long;
+
+use ChromeDriver;
+use Page::Navigation;
+use Visual::Capture;
+
+# Take a screenshot of a web page
+#
+# Usage: screenshot URL [OUTPUT] [OPTIONS]
+#   screenshot https://example.com                     # outputs to /tmp/screenshot-TIMESTAMP.png
+#   screenshot https://example.com /tmp/page.png      # outputs to specified file
+#   screenshot https://example.com --full-page        # capture entire scrollable page
+#   screenshot https://example.com --selector="h1"    # capture specific element
+#   screenshot https://example.com --format=jpeg --quality=80
+
+my $full_page = 0;
+my $selector = '';
+my $format = 'png';
+my $quality = 80;
+my $width = 0;
+my $height = 0;
+my $help = 0;
+
+GetOptions(
+    'full-page'  => \$full_page,
+    'selector=s' => \$selector,
+    'format=s'   => \$format,
+    'quality=i'  => \$quality,
+    'width=i'    => \$width,
+    'height=i'   => \$height,
+    'help'       => \$help,
+) or die "Error in command line arguments\n";
+
+if ($help || !@ARGV) {
+    print <<'USAGE';
+Usage: screenshot URL [OUTPUT] [OPTIONS]
+
+Arguments:
+  URL          Web page URL to screenshot
+  OUTPUT       Output file path (default: /tmp/screenshot-TIMESTAMP.png)
+
+Options:
+  --full-page      Capture entire scrollable page
+  --selector=CSS   Capture specific element
+  --format=FORMAT  Output format: png (default), jpeg, webp
+  --quality=N      JPEG/WebP quality 0-100 (default: 80)
+  --width=N        Viewport width in pixels
+  --height=N       Viewport height in pixels
+  --help           Show this help
+
+Examples:
+  screenshot https://example.com
+  screenshot https://example.com /tmp/page.png
+  screenshot https://example.com --full-page --format=jpeg
+  screenshot https://example.com --selector="article.main"
+USAGE
+    exit($help ? 0 : 1);
+}
+
+my $url = shift @ARGV;
+my $output = shift @ARGV;
+
+# Default output filename
+unless ($output) {
+    my $ext = $format eq 'jpeg' ? 'jpg' : $format;
+    $output = "/tmp/screenshot-" . time() . ".$ext";
+}
+
+# Connect to Chrome
+my $chrome = ChromeDriver->new(headless => 1, timeout => 30);
+$chrome->connect_to_page() or die "Failed to connect: " . $chrome->error . "\n";
+
+my $nav = Page::Navigation->new(chrome => $chrome);
+my $capture = Visual::Capture->new(chrome => $chrome);
+
+# Set viewport if requested
+if ($width && $height) {
+    $capture->set_viewport(width => $width, height => $height);
+}
+
+# Navigate to URL
+$nav->navigate($url) or die "Failed to navigate: " . $nav->error . "\n";
+
+# Take screenshot
+my %opts = (
+    file   => $output,
+    format => $format,
+);
+$opts{quality} = $quality if $format ne 'png';
+$opts{full_page} = 1 if $full_page;
+$opts{selector} = $selector if $selector;
+
+my $result = $capture->screenshot(%opts);
+
+if ($result) {
+    my $size = -s $output;
+    print "Screenshot saved: $output ($size bytes)\n";
+} else {
+    die "Screenshot failed: " . ($capture->error // 'unknown error') . "\n";
+}
+
+$chrome->quit();

@@ -1,11 +1,8 @@
 {
   "hooks": [
     {
-      "name": "chrome-cleanup",
-      "event": "session-end",
-      "description": "Clean up Chrome processes when Claude session ends",
-      "command": "bash",
-      "args": ["-c", "pkill -f 'chrome.*--remote-debugging-port' 2>/dev/null || true; rm -rf /tmp/chrome-profile* 2>/dev/null || true"]
+      "event": "Stop",
+      "command": ["bash", "-c", "pkill -f 'chrome.*--remote-debugging-port' 2>/dev/null || true; rm -rf /tmp/chrome-profile* 2>/dev/null || true"]
     }
   ]
 }

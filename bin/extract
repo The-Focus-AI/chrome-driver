@@ -1,0 +1,121 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Getopt::Long;
+
+use ChromeDriver;
+use Page::Navigation;
+use Content::Extraction;
+
+# Extract content from a web page
+#
+# Usage: extract URL [OPTIONS]
+#   extract https://example.com                  # outputs markdown
+#   extract https://example.com --format=text   # outputs plain text
+#   extract https://example.com --format=html   # outputs HTML
+#   extract https://example.com --links         # include links list
+#   extract https://example.com --selector="article"  # extract specific element
+
+my $format = 'markdown';
+my $selector = '';
+my $links = 0;
+my $images = 0;
+my $metadata = 0;
+my $help = 0;
+
+GetOptions(
+    'format=s'   => \$format,
+    'selector=s' => \$selector,
+    'links'      => \$links,
+    'images'     => \$images,
+    'metadata'   => \$metadata,
+    'help'       => \$help,
+) or die "Error in command line arguments\n";
+
+if ($help || !@ARGV) {
+    print <<'USAGE';
+Usage: extract URL [OPTIONS]
+
+Arguments:
+  URL          Web page URL to extract content from
+
+Options:
+  --format=FORMAT   Output format: markdown (default), text, html
+  --selector=CSS    Extract specific element only
+  --links           Also output list of links
+  --images          Also output list of images
+  --metadata        Also output page metadata
+  --help            Show this help
+
+Examples:
+  extract https://example.com
+  extract https://example.com --format=text
+  extract https://example.com --selector="article.main"
+  extract https://example.com --links --metadata
+USAGE
+    exit($help ? 0 : 1);
+}
+
+my $url = shift @ARGV;
+
+# Connect to Chrome
+my $chrome = ChromeDriver->new(headless => 1, timeout => 30);
+$chrome->connect_to_page() or die "Failed to connect: " . $chrome->error . "\n";
+
+my $nav = Page::Navigation->new(chrome => $chrome);
+my $content = Content::Extraction->new(chrome => $chrome);
+
+# Navigate to URL
+$nav->navigate($url) or die "Failed to navigate: " . $nav->error . "\n";
+
+# Extract content based on format
+my $result;
+my %opts = $selector ? (selector => $selector) : ();
+
+if ($format eq 'html') {
+    $result = $content->html(%opts);
+} elsif ($format eq 'text') {
+    $result = $content->text(%opts);
+} else {
+    $result = $content->markdown(%opts);
+}
+
+print $result if defined $result;
+print "\n" unless $result && $result =~ /\n$/;
+
+# Optional: links
+if ($links) {
+    my $link_list = $content->links();
+    if ($link_list && @$link_list) {
+        print "\n--- Links ---\n";
+        for my $l (@$link_list) {
+            printf "[%s](%s)\n", $l->{text} // '', $l->{href} // '';
+        }
+    }
+}
+
+# Optional: images
+if ($images) {
+    my $img_list = $content->images();
+    if ($img_list && @$img_list) {
+        print "\n--- Images ---\n";
+        for my $i (@$img_list) {
+            printf "![%s](%s)\n", $i->{alt} // '', $i->{src} // '';
+        }
+    }
+}
+
+# Optional: metadata
+if ($metadata) {
+    my $meta = $content->metadata();
+    if ($meta && %$meta) {
+        print "\n--- Metadata ---\n";
+        for my $key (sort keys %$meta) {
+            printf "%s: %s\n", $key, $meta->{$key} // '';
+        }
+    }
+}
+
+$chrome->quit();

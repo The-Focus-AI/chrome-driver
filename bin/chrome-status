@@ -1,0 +1,34 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use ChromeDriver;
+use JSON::PP;
+
+# Check Chrome browser status
+
+my $chrome = ChromeDriver->new(auto_start => 0);
+
+my $version = $chrome->version();
+my $targets = $chrome->list_targets();
+
+if ($version) {
+    print "Chrome is running\n";
+    print "  Browser: $version->{Browser}\n" if $version->{Browser};
+    print "  Protocol: $version->{'Protocol-Version'}\n" if $version->{'Protocol-Version'};
+    print "  WebSocket: $version->{webSocketDebuggerUrl}\n" if $version->{webSocketDebuggerUrl};
+
+    if ($targets && @$targets) {
+        print "\nOpen targets:\n";
+        for my $t (@$targets) {
+            printf "  [%s] %s\n", $t->{type}, $t->{url} // $t->{title} // 'untitled';
+        }
+    }
+    exit 0;
+} else {
+    print "Chrome is not running on port 9222\n";
+    print "Start with: google-chrome --remote-debugging-port=9222 --headless\n";
+    exit 1;
+}

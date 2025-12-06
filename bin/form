@@ -1,0 +1,186 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Getopt::Long;
+use JSON::PP;
+
+use ChromeDriver;
+use Page::Navigation;
+use DOM::Elements;
+
+# Fill out and submit web forms
+#
+# Usage: form URL [OPTIONS]
+#   form https://example.com/login --fill='{"#username":"john","#password":"secret"}' --submit="button[type=submit]"
+#   form https://example.com/search --set="#q=hello world" --click="button.search"
+
+my @fill;        # --fill='selector=value' pairs
+my @select;      # --select='selector=value' pairs (for dropdowns)
+my $fill_json;   # --fill-json='{"selector":"value",...}'
+my $submit;      # --submit='selector' button to click after filling
+my $wait_for;    # --wait-for='selector' wait for element before filling
+my $wait_after;  # --wait-after='selector' wait for element after submit
+my $screenshot;  # --screenshot='/path/to/file.png' take screenshot after
+my $timeout = 30;
+my $help = 0;
+
+GetOptions(
+    'fill=s'       => \@fill,
+    'select=s'     => \@select,
+    'fill-json=s'  => \$fill_json,
+    'submit=s'     => \$submit,
+    'wait-for=s'   => \$wait_for,
+    'wait-after=s' => \$wait_after,
+    'screenshot=s' => \$screenshot,
+    'timeout=i'    => \$timeout,
+    'help'         => \$help,
+) or die "Error in command line arguments\n";
+
+if ($help || !@ARGV) {
+    print <<'USAGE';
+Usage: form URL [OPTIONS]
+
+Fill out and submit web forms.
+
+Arguments:
+  URL          Web page URL with the form
+
+Options:
+  --fill=SELECTOR=VALUE       Fill input field (can repeat)
+  --select=SELECTOR=VALUE     Select dropdown option (can repeat)
+  --fill-json='{"sel":"val"}' Fill multiple fields from JSON
+  --submit=SELECTOR           Click submit button after filling
+  --wait-for=SELECTOR         Wait for element before filling
+  --wait-after=SELECTOR       Wait for element after submit
+  --screenshot=PATH           Take screenshot after completion
+  --timeout=SECONDS           Timeout in seconds (default: 30)
+  --help                      Show this help
+
+Examples:
+  # Login form
+  form https://example.com/login \
+    --fill='#username=john' \
+    --fill='#password=secret' \
+    --submit='button[type=submit]' \
+    --wait-after='.dashboard'
+
+  # Search form
+  form https://google.com \
+    --fill='input[name=q]=hello world' \
+    --submit='input[type=submit]'
+
+  # Complex form with dropdowns
+  form https://example.com/register \
+    --fill='#name=John Doe' \
+    --fill='#email=john@example.com' \
+    --select='#country=US' \
+    --select='#state=CA' \
+    --submit='#register-btn'
+
+  # Using JSON for multiple fields
+  form https://example.com/contact \
+    --fill-json='{"#name":"John","#email":"john@test.com","#message":"Hello!"}' \
+    --submit='button.send'
+
+Notes:
+  - Fields are filled in the order specified
+  - Use CSS selectors for all element references
+  - Dropdowns are selected by value (use --select)
+USAGE
+    exit($help ? 0 : 1);
+}
+
+my $url = shift @ARGV;
+
+# Parse fill-json if provided
+my %json_fields;
+if ($fill_json) {
+    my $data = eval { decode_json($fill_json) };
+    if ($@) {
+        die "Invalid JSON in --fill-json: $@\n";
+    }
+    %json_fields = %$data;
+}
+
+# Connect to Chrome
+my $chrome = ChromeDriver->new(headless => 1, timeout => $timeout);
+$chrome->connect_to_page() or die "Failed to connect: " . $chrome->error . "\n";
+
+my $nav = Page::Navigation->new(chrome => $chrome, timeout => $timeout);
+my $dom = DOM::Elements->new(chrome => $chrome);
+
+# Navigate to URL
+print "Navigating to: $url\n";
+$nav->navigate($url) or die "Failed to navigate: " . $nav->error . "\n";
+
+# Wait for element if requested
+if ($wait_for) {
+    print "Waiting for: $wait_for\n";
+    $nav->wait_for_selector($wait_for, timeout => $timeout)
+        or die "Timeout waiting for: $wait_for\n";
+}
+
+# Fill fields from JSON
+for my $selector (keys %json_fields) {
+    my $value = $json_fields{$selector};
+    print "Filling: $selector\n";
+    $dom->type($selector, $value) or warn "Failed to fill $selector: " . ($dom->error // 'unknown') . "\n";
+    select(undef, undef, undef, 0.1);  # Small delay between fields
+}
+
+# Fill fields from --fill options
+for my $pair (@fill) {
+    my ($selector, $value) = split /=/, $pair, 2;
+    unless (defined $value) {
+        warn "Invalid --fill format: $pair (use selector=value)\n";
+        next;
+    }
+    print "Filling: $selector\n";
+    $dom->type($selector, $value) or warn "Failed to fill $selector: " . ($dom->error // 'unknown') . "\n";
+    select(undef, undef, undef, 0.1);
+}
+
+# Handle dropdowns from --select options
+for my $pair (@select) {
+    my ($selector, $value) = split /=/, $pair, 2;
+    unless (defined $value) {
+        warn "Invalid --select format: $pair (use selector=value)\n";
+        next;
+    }
+    print "Selecting: $selector = $value\n";
+    $dom->select($selector, $value) or warn "Failed to select $selector: " . ($dom->error // 'unknown') . "\n";
+    select(undef, undef, undef, 0.1);
+}
+
+# Submit if requested
+if ($submit) {
+    print "Clicking: $submit\n";
+    $dom->click($submit) or die "Failed to click submit: " . ($dom->error // 'unknown') . "\n";
+
+    # Wait for navigation or element after submit
+    if ($wait_after) {
+        print "Waiting for: $wait_after\n";
+        $nav->wait_for_selector($wait_after, timeout => $timeout)
+            or warn "Timeout waiting for: $wait_after\n";
+    } else {
+        # Brief wait for any navigation
+        select(undef, undef, undef, 1);
+    }
+}
+
+# Take screenshot if requested
+if ($screenshot) {
+    require Visual::Capture;
+    my $capture = Visual::Capture->new(chrome => $chrome);
+    print "Taking screenshot: $screenshot\n";
+    $capture->screenshot(file => $screenshot)
+        or warn "Screenshot failed: " . ($capture->error // 'unknown') . "\n";
+}
+
+my $final_url = $nav->current_url();
+print "Final URL: $final_url\n";
+print "Done.\n";
+
+$chrome->quit();

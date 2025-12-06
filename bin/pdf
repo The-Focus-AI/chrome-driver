@@ -1,0 +1,98 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Getopt::Long;
+
+use ChromeDriver;
+use Page::Navigation;
+use Print::PDF;
+
+# Generate a PDF from a web page
+#
+# Usage: pdf URL [OUTPUT] [OPTIONS]
+#   pdf https://example.com                    # outputs to /tmp/page-TIMESTAMP.pdf
+#   pdf https://example.com /tmp/doc.pdf       # outputs to specified file
+#   pdf https://example.com --paper=a4         # use A4 paper size
+#   pdf https://example.com --landscape        # landscape orientation
+
+my $paper = 'letter';
+my $landscape = 0;
+my $margin = 0.4;
+my $scale = 1.0;
+my $background = 1;
+my $help = 0;
+
+GetOptions(
+    'paper=s'     => \$paper,
+    'landscape'   => \$landscape,
+    'margin=f'    => \$margin,
+    'scale=f'     => \$scale,
+    'background!' => \$background,
+    'help'        => \$help,
+) or die "Error in command line arguments\n";
+
+if ($help || !@ARGV) {
+    print <<'USAGE';
+Usage: pdf URL [OUTPUT] [OPTIONS]
+
+Arguments:
+  URL          Web page URL to convert to PDF
+  OUTPUT       Output file path (default: /tmp/page-TIMESTAMP.pdf)
+
+Options:
+  --paper=SIZE       Paper size: letter (default), a4, legal, a3, a5, tabloid
+  --landscape        Landscape orientation (default: portrait)
+  --margin=INCHES    All margins in inches (default: 0.4)
+  --scale=FACTOR     Scale factor 0.1-2.0 (default: 1.0)
+  --no-background    Don't print background colors/images
+  --help             Show this help
+
+Examples:
+  pdf https://example.com
+  pdf https://example.com /tmp/doc.pdf
+  pdf https://example.com --paper=a4 --landscape
+  pdf https://example.com --margin=1 --scale=0.8
+USAGE
+    exit($help ? 0 : 1);
+}
+
+my $url = shift @ARGV;
+my $output = shift @ARGV;
+
+# Default output filename
+unless ($output) {
+    $output = "/tmp/page-" . time() . ".pdf";
+}
+
+# Connect to Chrome
+my $chrome = ChromeDriver->new(headless => 1, timeout => 30);
+$chrome->connect_to_page() or die "Failed to connect: " . $chrome->error . "\n";
+
+my $nav = Page::Navigation->new(chrome => $chrome);
+my $pdf = Print::PDF->new(chrome => $chrome);
+
+# Navigate to URL
+$nav->navigate($url) or die "Failed to navigate: " . $nav->error . "\n";
+
+# Generate PDF
+my %opts = (
+    file             => $output,
+    paper_size       => $paper,
+    landscape        => $landscape,
+    margin           => $margin,
+    scale            => $scale,
+    print_background => $background,
+);
+
+my $result = $pdf->pdf(%opts);
+
+if ($result) {
+    my $size = -s $output;
+    print "PDF saved: $output ($size bytes)\n";
+} else {
+    die "PDF generation failed: " . ($pdf->error // 'unknown error') . "\n";
+}
+
+$chrome->quit();
