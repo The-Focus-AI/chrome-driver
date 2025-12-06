@@ -17,6 +17,9 @@ sub new {
     }, $class;
 }
 
+# Maximum dimension for screenshots (API limit)
+our $MAX_DIMENSION = 8000;
+
 # Take a screenshot of the page
 sub screenshot {
     my ($self, %opts) = @_;
@@ -27,6 +30,7 @@ sub screenshot {
     my $selector = $opts{selector};            # Capture specific element
     my $clip = $opts{clip};                    # { x, y, width, height, scale }
     my $file = $opts{file};                    # Save to file path
+    my $max_dimension = $opts{max_dimension} // $MAX_DIMENSION;  # Max output dimension
 
     # Validate format
     unless ($format =~ /^(png|jpeg|webp)$/) {
@@ -50,12 +54,23 @@ sub screenshot {
         # Get the full page dimensions
         my $metrics = $self->_get_page_metrics();
         if ($metrics) {
+            my $width = $metrics->{contentWidth};
+            my $height = $metrics->{contentHeight};
+
+            # Calculate scale to fit within max_dimension
+            my $scale = 1;
+            if ($width > $max_dimension || $height > $max_dimension) {
+                my $scale_w = $max_dimension / $width;
+                my $scale_h = $max_dimension / $height;
+                $scale = $scale_w < $scale_h ? $scale_w : $scale_h;
+            }
+
             $params{clip} = {
                 x      => 0,
                 y      => 0,
-                width  => $metrics->{contentWidth},
-                height => $metrics->{contentHeight},
-                scale  => 1,
+                width  => $width,
+                height => $height,
+                scale  => $scale,
             };
         }
     }
@@ -64,12 +79,23 @@ sub screenshot {
     if ($selector) {
         my $box = $self->_get_element_box($selector);
         if ($box) {
+            my $width = $box->{width};
+            my $height = $box->{height};
+
+            # Calculate scale to fit within max_dimension
+            my $scale = 1;
+            if ($width > $max_dimension || $height > $max_dimension) {
+                my $scale_w = $max_dimension / $width;
+                my $scale_h = $max_dimension / $height;
+                $scale = $scale_w < $scale_h ? $scale_w : $scale_h;
+            }
+
             $params{clip} = {
                 x      => $box->{x},
                 y      => $box->{y},
-                width  => $box->{width},
-                height => $box->{height},
-                scale  => 1,
+                width  => $width,
+                height => $height,
+                scale  => $scale,
             };
         }
         else {
@@ -79,12 +105,27 @@ sub screenshot {
 
     # Handle custom clip region
     if ($clip && ref $clip eq 'HASH') {
+        my $width = $clip->{width} // 800;
+        my $height = $clip->{height} // 600;
+        my $req_scale = $clip->{scale} // 1;
+
+        # Calculate scale to fit within max_dimension
+        my $scale = $req_scale;
+        my $output_width = $width * $req_scale;
+        my $output_height = $height * $req_scale;
+        if ($output_width > $max_dimension || $output_height > $max_dimension) {
+            my $scale_w = $max_dimension / $output_width;
+            my $scale_h = $max_dimension / $output_height;
+            my $factor = $scale_w < $scale_h ? $scale_w : $scale_h;
+            $scale = $req_scale * $factor;
+        }
+
         $params{clip} = {
             x      => $clip->{x} // 0,
             y      => $clip->{y} // 0,
-            width  => $clip->{width} // 800,
-            height => $clip->{height} // 600,
-            scale  => $clip->{scale} // 1,
+            width  => $width,
+            height => $height,
+            scale  => $scale,
         };
     }
 

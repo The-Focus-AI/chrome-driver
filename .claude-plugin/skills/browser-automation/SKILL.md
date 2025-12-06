@@ -22,6 +22,7 @@ Options:
 - `--format=png|jpeg|webp` - Output format (default: png)
 - `--quality=N` - JPEG/WebP quality 0-100
 - `--width=N --height=N` - Set viewport size
+- `--max-dimension=N` - Max output dimension (default: 8000, auto-scales large pages)
 
 Examples:
 ```bash
@@ -220,3 +221,4 @@ ffmpeg -framerate 10 -i /tmp/frames/frame-%04d.jpg -c:v libx264 video.mp4
 - Use `pkill -f 'chrome.*--remote-debugging-port'` to stop Chrome manually
 - Default port is 9222; set `CHROME_DRIVER_PORT` to change
 - All scripts support `--help` for full usage info
+- Large screenshots are auto-scaled to fit within 8000px (API limit)

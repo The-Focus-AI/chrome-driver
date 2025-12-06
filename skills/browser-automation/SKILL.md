@@ -6,322 +6,221 @@ allowed-tools: Bash, Read, Write
 
 # Browser Automation with Chrome DevTools Protocol
 
-This skill enables you to control a Chrome browser programmatically using pure Perl and the Chrome DevTools Protocol (CDP).
+Control Chrome browser programmatically using simple command-line scripts. All scripts auto-start Chrome in headless mode if not running.
 
-## When to Use This Skill
+## Available Commands
 
-Activate this skill when the user asks to:
-- Scrape or extract content from websites
-- Take screenshots of web pages
-- Generate PDFs from web pages
-- Interact with web pages (click, type, navigate)
-- Fill out forms automatically
-- Monitor or test web applications
-- Extract structured data from websites
-- Automate any browser-based task
+All scripts are in `bin/`:
 
-## Available Tools
+### screenshot - Capture web pages as images
 
-All tools are implemented as Perl modules in the `lib/` directory. Run them with:
 ```bash
-perl -Ilib -M<Module> -e '<code>'
+bin/screenshot URL [OUTPUT] [OPTIONS]
 ```
 
-### Core Module: ChromeDriver
+Options:
+- `--full-page` - Capture entire scrollable page
+- `--selector=CSS` - Capture specific element
+- `--format=png|jpeg|webp` - Output format (default: png)
+- `--quality=N` - JPEG/WebP quality 0-100
+- `--width=N --height=N` - Set viewport size
+- `--max-dimension=N` - Max output dimension (default: 8000, auto-scales large pages)
 
-The main entry point for browser control:
-
-```perl
-use ChromeDriver;
-
-# Create connection
-my $chrome = ChromeDriver->new(
-    headless => 1,           # Run without UI
-    port => 9222,            # Debugging port
-    user_data_dir => undef   # Temporary profile
-);
-
-# Connect to browser
-$chrome->connect_to_page() or die $chrome->error;
-
-# Enable domains
-$chrome->enable('Page');
-$chrome->enable('Runtime');
-$chrome->enable('DOM');
-
-# Send CDP commands
-my $result = $chrome->send('Page.navigate', { url => 'https://example.com' });
-
-# Wait for events
-$chrome->wait_for_event('Page.loadEventFired', 30);
-
-# Close
-$chrome->close();
-```
-
-### Navigation (Page::Navigation)
-
-```perl
-use Page::Navigation;
-my $nav = Page::Navigation->new(chrome => $chrome);
-
-$nav->goto('https://example.com');
-$nav->back();
-$nav->forward();
-$nav->reload();
-
-my $url = $nav->current_url();
-my $title = $nav->title();
-```
-
-### Content Extraction (Content::Extraction)
-
-```perl
-use Content::Extraction;
-my $content = Content::Extraction->new(chrome => $chrome);
-
-my $html = $content->html();              # Full page HTML
-my $text = $content->text('article');    # Text from selector
-my $markdown = $content->markdown();      # Page as markdown
-my @links = $content->links();            # [{href, text}, ...]
-my @images = $content->images();          # [{src, alt}, ...]
-my %meta = $content->metadata();          # Meta tags
-```
-
-### Screenshots (Visual::Capture)
-
-```perl
-use Visual::Capture;
-my $capture = Visual::Capture->new(chrome => $chrome);
-
+Examples:
+```bash
 # Basic screenshot
-$capture->screenshot(file => '/tmp/page.png');
+bin/screenshot https://example.com /tmp/page.png
 
-# Full page
-$capture->screenshot(
-    file => '/tmp/full.png',
-    full_page => 1
-);
+# Full page as JPEG
+bin/screenshot https://example.com /tmp/full.jpg --full-page --format=jpeg
 
-# Element screenshot
-$capture->screenshot(
-    selector => 'h1',
-    file => '/tmp/header.png'
-);
-
-# Custom format/quality
-$capture->screenshot(
-    file => '/tmp/page.jpg',
-    format => 'jpeg',
-    quality => 80
-);
+# Capture specific element
+bin/screenshot https://example.com /tmp/header.png --selector="header"
 ```
 
-### PDF Generation (Print::PDF)
+### pdf - Generate PDFs from web pages
 
-```perl
-use Print::PDF;
-my $pdf = Print::PDF->new(chrome => $chrome);
-
-# Simple PDF
-$pdf->pdf(file => '/tmp/page.pdf');
-
-# With options
-$pdf->a4(
-    file => '/tmp/doc.pdf',
-    margin => 1,
-    print_background => 1
-);
-
-# Custom size
-$pdf->pdf(
-    file => '/tmp/custom.pdf',
-    paper_size => { width => 8.5, height => 11 },
-    landscape => 1
-);
+```bash
+bin/pdf URL [OUTPUT] [OPTIONS]
 ```
 
-### DOM Interaction (DOM::Elements)
+Options:
+- `--paper=letter|a4|legal|a3|a5|tabloid` - Paper size (default: letter)
+- `--landscape` - Landscape orientation
+- `--margin=INCHES` - All margins (default: 0.4)
+- `--scale=FACTOR` - Scale 0.1-2.0 (default: 1.0)
+- `--no-background` - Skip background colors/images
 
-```perl
-use DOM::Elements;
-my $dom = DOM::Elements->new(chrome => $chrome);
+Examples:
+```bash
+# Basic PDF
+bin/pdf https://example.com /tmp/doc.pdf
 
-# Query elements
-my $el = $dom->query('input[name="email"]');
-my @els = $dom->query_all('a.link');
-my $exists = $dom->exists('.modal');
+# A4 landscape
+bin/pdf https://example.com /tmp/report.pdf --paper=a4 --landscape
 
-# Interact
-$dom->click('button#submit');
-$dom->type($el, 'user@example.com');
-$dom->select($dropdown, 'option-value');
-$dom->hover('.menu-item');
-$dom->scroll_to($el);
-
-# Wait
-my $el = $dom->wait_for('.success-message', 10);
-
-# Get info
-my $text = $dom->get_text($el);
-my $value = $dom->get_attribute($el, 'href');
-my $box = $dom->get_box($el);  # {x, y, width, height}
+# Tight margins
+bin/pdf https://example.com /tmp/compact.pdf --margin=0.25
 ```
 
-### JavaScript Execution (JS::Execute)
+### extract - Extract content from web pages
 
-```perl
-use JS::Execute;
-my $js = JS::Execute->new(chrome => $chrome);
-
-# Evaluate expression
-my $result = $js->evaluate('document.title');
-my $sum = $js->evaluate('1 + 2');
-
-# Async/Promises
-my $data = $js->evaluate_async(
-    'fetch("/api").then(r => r.json())'
-);
-
-# Raw CDP
-my $doc = $js->cdp_send('DOM.getDocument');
+```bash
+bin/extract URL [OPTIONS]
 ```
 
-### Session Management (Session::Cookies)
+Options:
+- `--format=markdown|text|html` - Output format (default: markdown)
+- `--selector=CSS` - Extract specific element only
+- `--links` - Also list all links
+- `--images` - Also list all images
+- `--metadata` - Also show page metadata
 
-```perl
-use Session::Cookies;
-my $cookies = Session::Cookies->new(chrome => $chrome);
+Examples:
+```bash
+# Get page as markdown
+bin/extract https://example.com
 
-# Set cookie
-$cookies->set(
-    name => 'session',
-    value => 'abc123',
-    domain => 'example.com'
-);
+# Get plain text from article
+bin/extract https://example.com --format=text --selector="article"
 
-# Get cookies
-my @all = $cookies->get_all();
-my $cookie = $cookies->get_cookie('session');
-
-# Persist
-$cookies->save('/tmp/session.json');
-$cookies->load('/tmp/session.json');
-
-# Clear
-$cookies->clear();
+# Get all links and metadata
+bin/extract https://example.com --links --metadata
 ```
 
-### Help System (Help::Browser)
+### navigate - Navigate and interact with pages
 
-```perl
-use Help::Browser qw(browser_help);
-
-print browser_help();              # Overview
-print browser_help('navigation');  # Topic help
-print browser_help('examples');    # Usage examples
+```bash
+bin/navigate URL [OPTIONS]
 ```
 
-## Common Patterns
+Options:
+- `--wait-for=SELECTOR` - Wait for element to appear
+- `--click=SELECTOR` - Click an element
+- `--type=SELECTOR=TEXT` - Type text into input field
+- `--eval=JAVASCRIPT` - Execute JavaScript and print result
+- `--timeout=SECONDS` - Timeout (default: 30)
 
-### Scrape a Website
+Examples:
+```bash
+# Navigate and wait for content
+bin/navigate https://example.com --wait-for="#content"
 
-```perl
-use ChromeDriver;
-use Page::Navigation;
-use Content::Extraction;
+# Fill form and submit
+bin/navigate https://google.com --type="input[name=q]=hello" --click="input[type=submit]"
 
-my $chrome = ChromeDriver->new(headless => 1);
-$chrome->connect_to_page();
-
-my $nav = Page::Navigation->new(chrome => $chrome);
-my $content = Content::Extraction->new(chrome => $chrome);
-
-$nav->goto('https://example.com');
-my $text = $content->text('article');
-my @links = $content->links();
-
-$chrome->close();
+# Get page title via JavaScript
+bin/navigate https://example.com --eval="document.title"
 ```
 
-### Fill a Form and Submit
+### form - Fill out and submit web forms
 
-```perl
-use ChromeDriver;
-use Page::Navigation;
-use DOM::Elements;
-
-my $chrome = ChromeDriver->new(headless => 1);
-$chrome->connect_to_page();
-
-my $nav = Page::Navigation->new(chrome => $chrome);
-my $dom = DOM::Elements->new(chrome => $chrome);
-
-$nav->goto('https://example.com/login');
-
-$dom->type('input[name="email"]', 'user@example.com');
-$dom->type('input[name="password"]', 'secret');
-$dom->click('button[type="submit"]');
-
-$dom->wait_for('.dashboard', 10);
-
-$chrome->close();
+```bash
+bin/form URL [OPTIONS]
 ```
 
-### Generate PDF Report
+Options:
+- `--fill=SELECTOR=VALUE` - Fill input field (can repeat)
+- `--select=SELECTOR=VALUE` - Select dropdown option (can repeat)
+- `--fill-json='{"sel":"val"}'` - Fill multiple fields from JSON
+- `--submit=SELECTOR` - Click submit button after filling
+- `--wait-for=SELECTOR` - Wait for element before filling
+- `--wait-after=SELECTOR` - Wait for element after submit
+- `--screenshot=PATH` - Take screenshot after completion
 
-```perl
-use ChromeDriver;
-use Page::Navigation;
-use Print::PDF;
+Examples:
+```bash
+# Login form
+bin/form https://example.com/login \
+  --fill='#username=john' \
+  --fill='#password=secret' \
+  --submit='button[type=submit]'
 
-my $chrome = ChromeDriver->new(headless => 1);
-$chrome->connect_to_page();
+# Form with dropdowns
+bin/form https://example.com/register \
+  --fill='#name=John Doe' \
+  --fill='#email=john@example.com' \
+  --select='#country=US' \
+  --submit='#register-btn'
 
-my $nav = Page::Navigation->new(chrome => $chrome);
-my $pdf = Print::PDF->new(chrome => $chrome);
-
-$nav->goto('https://example.com/report');
-$pdf->a4(
-    file => '/tmp/report.pdf',
-    margin => 1,
-    print_background => 1
-);
-
-$chrome->close();
+# Using JSON
+bin/form https://example.com/contact \
+  --fill-json='{"#name":"John","#email":"john@test.com"}' \
+  --submit='button.send'
 ```
 
-## Implementation Notes
+### record - Record screencast frames
 
-- **Pure Perl**: Uses only standard Perl 5.14+ modules (no CPAN dependencies)
-- **WebSocket**: Manual RFC 6455 implementation for CDP communication
-- **Auto-lifecycle**: Chrome launches automatically, but you should explicitly close connections
-- **Error handling**: Always check return values and call `$chrome->error` on failure
-- **Timeouts**: Most operations have default timeouts, adjustable via parameters
-
-## Troubleshooting
-
-**Chrome won't start:**
-- Check if Chrome/Chromium is installed
-- Try running: `google-chrome --remote-debugging-port=9222`
-- Check for orphan processes: `pkill -f 'chrome.*--remote-debugging-port'`
-
-**WebSocket connection fails:**
-- Ensure Chrome is running with debugging enabled
-- Check port 9222 is not in use: `lsof -i :9222`
-- Review connection logs in ChromeDriver
-
-**Element not found:**
-- Use `$dom->wait_for($selector, $timeout)` to wait for dynamic content
-- Check selector is correct with browser DevTools
-- Ensure page has fully loaded
-
-## Getting Help
-
-For detailed documentation on any topic:
-```perl
-use Help::Browser qw(browser_help);
-print browser_help('topic');
+```bash
+bin/record URL OUTPUT_DIR [OPTIONS]
 ```
 
-Topics: overview, navigation, content, screenshot, pdf, dom, javascript, cookies, cdp, examples
+Options:
+- `--duration=SECONDS` - Recording duration (default: 5)
+- `--count=N` - Exact number of frames to capture
+- `--format=jpeg|png` - Frame format (default: jpeg)
+- `--quality=N` - JPEG quality 0-100 (default: 80)
+- `--max-width=N` - Maximum frame width
+- `--max-height=N` - Maximum frame height
+- `--fps=N` - Approximate frames per second (default: 10)
+
+Examples:
+```bash
+# Record 5 seconds
+bin/record https://example.com /tmp/frames
+
+# Record 30 PNG frames
+bin/record https://example.com /tmp/frames --count=30 --format=png
+
+# Convert to video with ffmpeg
+ffmpeg -framerate 10 -i /tmp/frames/frame-%04d.jpg -c:v libx264 output.mp4
+```
+
+### chrome-status - Check browser status
+
+```bash
+bin/chrome-status
+```
+
+Shows whether Chrome is running, version info, and open tabs.
+
+## Common Workflows
+
+### Screenshot a page
+```bash
+bin/screenshot https://example.com /tmp/screenshot.png
+```
+
+### Convert page to PDF
+```bash
+bin/pdf https://example.com /tmp/document.pdf --paper=a4
+```
+
+### Scrape page content
+```bash
+bin/extract https://example.com --format=markdown
+```
+
+### Fill and submit a form
+```bash
+bin/form https://example.com/login \
+  --fill='#username=user' \
+  --fill='#password=pass' \
+  --submit='button[type=submit]' \
+  --wait-after='.dashboard'
+```
+
+### Record a screencast
+```bash
+bin/record https://example.com /tmp/frames --duration=10
+ffmpeg -framerate 10 -i /tmp/frames/frame-%04d.jpg -c:v libx264 video.mp4
+```
+
+## Notes
+
+- Chrome auto-starts in headless mode when needed
+- Chrome continues running between commands for speed
+- Use `pkill -f 'chrome.*--remote-debugging-port'` to stop Chrome manually
+- Default port is 9222; set `CHROME_DRIVER_PORT` to change
+- All scripts support `--help` for full usage info
+- Large screenshots are auto-scaled to fit within 8000px (API limit)

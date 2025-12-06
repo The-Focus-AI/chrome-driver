@@ -24,16 +24,18 @@ my $format = 'png';
 my $quality = 80;
 my $width = 0;
 my $height = 0;
+my $max_dimension = 8000;
 my $help = 0;
 
 GetOptions(
-    'full-page'  => \$full_page,
-    'selector=s' => \$selector,
-    'format=s'   => \$format,
-    'quality=i'  => \$quality,
-    'width=i'    => \$width,
-    'height=i'   => \$height,
-    'help'       => \$help,
+    'full-page'       => \$full_page,
+    'selector=s'      => \$selector,
+    'format=s'        => \$format,
+    'quality=i'       => \$quality,
+    'width=i'         => \$width,
+    'height=i'        => \$height,
+    'max-dimension=i' => \$max_dimension,
+    'help'            => \$help,
 ) or die "Error in command line arguments\n";
 
 if ($help || !@ARGV) {
@@ -45,13 +47,14 @@ Arguments:
   OUTPUT       Output file path (default: /tmp/screenshot-TIMESTAMP.png)
 
 Options:
-  --full-page      Capture entire scrollable page
-  --selector=CSS   Capture specific element
-  --format=FORMAT  Output format: png (default), jpeg, webp
-  --quality=N      JPEG/WebP quality 0-100 (default: 80)
-  --width=N        Viewport width in pixels
-  --height=N       Viewport height in pixels
-  --help           Show this help
+  --full-page        Capture entire scrollable page
+  --selector=CSS     Capture specific element
+  --format=FORMAT    Output format: png (default), jpeg, webp
+  --quality=N        JPEG/WebP quality 0-100 (default: 80)
+  --width=N          Viewport width in pixels
+  --height=N         Viewport height in pixels
+  --max-dimension=N  Max output dimension in pixels (default: 8000, auto-scales)
+  --help             Show this help
 
 Examples:
   screenshot https://example.com
@@ -88,8 +91,9 @@ $nav->navigate($url) or die "Failed to navigate: " . $nav->error . "\n";
 
 # Take screenshot
 my %opts = (
-    file   => $output,
-    format => $format,
+    file          => $output,
+    format        => $format,
+    max_dimension => $max_dimension,
 );
 $opts{quality} = $quality if $format ne 'png';
 $opts{full_page} = 1 if $full_page;
