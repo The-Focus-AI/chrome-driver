@@ -2,12 +2,11 @@
   "name": "chrome-driver",
   "version": "0.1.0",
   "description": "Interact with web pages via Chrome DevTools Protocol using pure Perl",
-  "author": "Focus AI",
+  "author": {
+    "name": "Focus AI"
+  },
   "repository": "https://github.com/Focus-AI/chrome-driver",
   "license": "MIT",
-  "dependencies": {
-    "perl": ">=5.14"
-  },
   "keywords": [
     "chrome",
     "devtools",
@@ -21,12 +20,12 @@
     "./skills/browser-automation"
   ],
   "commands": [
-    "../commands/browser.md",
-    "../commands/screenshot.md",
-    "../commands/pdf.md",
-    "../commands/extract.md"
+    "./commands/browser.md",
+    "./commands/screenshot.md",
+    "./commands/pdf.md",
+    "./commands/extract.md"
   ],
   "hooks": [
-    "../hooks/hooks.json"
+    "./hooks/hooks.json"
   ]
 }
