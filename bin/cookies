@@ -1,0 +1,294 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use Getopt::Long qw(:config pass_through);
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use ChromeDriver;
+use Session::Cookies;
+use JSON::PP;
+
+# Cookie management for chrome-driver
+# Usage: cookies COMMAND [OPTIONS]
+
+my $help = 0;
+GetOptions('help|h' => \$help);
+
+if ($help || !@ARGV) {
+    print_usage();
+    exit($help ? 0 : 1);
+}
+
+my $command = shift @ARGV;
+
+# Parse remaining options based on command
+my %opts;
+GetOptions(
+    'name=s'      => \$opts{name},
+    'value=s'     => \$opts{value},
+    'domain=s'    => \$opts{domain},
+    'path=s'      => \$opts{path},
+    'url=s'       => \$opts{url},
+    'secure'      => \$opts{secure},
+    'http-only'   => \$opts{http_only},
+    'same-site=s' => \$opts{same_site},
+    'expires=i'   => \$opts{expires},
+    'file=s'      => \$opts{file},
+    'json'        => \$opts{json},
+);
+
+# Connect to Chrome (keep_running=1 for session persistence between CLI calls)
+my $chrome = ChromeDriver->new(headless => 1, timeout => 30, keep_running => 1);
+unless ($chrome->connect_to_page()) {
+    die "Failed to connect to Chrome: " . ($chrome->error // 'unknown') . "\n";
+}
+
+$chrome->enable('Network');
+
+my $cookies = Session::Cookies->new(chrome => $chrome);
+
+# Execute command
+if ($command eq 'list' || $command eq 'get') {
+    cmd_list(\%opts, $cookies);
+}
+elsif ($command eq 'set') {
+    cmd_set(\%opts, $cookies);
+}
+elsif ($command eq 'delete' || $command eq 'remove') {
+    cmd_delete(\%opts, $cookies);
+}
+elsif ($command eq 'clear') {
+    cmd_clear($cookies);
+}
+elsif ($command eq 'save') {
+    cmd_save(\%opts, $cookies);
+}
+elsif ($command eq 'load') {
+    cmd_load(\%opts, $cookies);
+}
+else {
+    print STDERR "Unknown command: $command\n";
+    print_usage();
+    exit(1);
+}
+
+# Chrome cleanup handled by END block
+
+sub cmd_list {
+    my ($opts, $cookies) = @_;
+
+    my @result;
+    if ($opts->{name}) {
+        # Search all cookies for the name (get_all is more reliable than get with URL)
+        my @all = $opts->{url}
+            ? $cookies->get(urls => [$opts->{url}])
+            : $cookies->get_all();
+        @result = grep { $_->{name} eq $opts->{name} } @all;
+    }
+    elsif ($opts->{url}) {
+        @result = $cookies->get(urls => [$opts->{url}]);
+    }
+    else {
+        @result = $cookies->get_all();
+    }
+
+    if ($opts->{json}) {
+        print JSON::PP->new->pretty->encode(\@result);
+    }
+    else {
+        if (@result == 0) {
+            print "No cookies found.\n";
+        }
+        else {
+            for my $c (@result) {
+                print_cookie($c);
+            }
+            print "\nTotal: " . scalar(@result) . " cookie(s)\n";
+        }
+    }
+}
+
+sub cmd_set {
+    my ($opts, $cookies) = @_;
+
+    unless ($opts->{name} && defined $opts->{value}) {
+        die "Error: --name and --value are required for set command\n";
+    }
+
+    # Need either URL or domain
+    unless ($opts->{url} || $opts->{domain}) {
+        die "Error: --url or --domain required for set command\n";
+    }
+
+    my $result = $cookies->set(
+        name      => $opts->{name},
+        value     => $opts->{value},
+        url       => $opts->{url},
+        domain    => $opts->{domain},
+        path      => $opts->{path} // '/',
+        secure    => $opts->{secure},
+        http_only => $opts->{http_only},
+        same_site => $opts->{same_site},
+        expires   => $opts->{expires},
+    );
+
+    if ($result) {
+        print "Cookie '$opts->{name}' set successfully.\n";
+    }
+    else {
+        die "Failed to set cookie: " . ($cookies->error // 'unknown') . "\n";
+    }
+}
+
+sub cmd_delete {
+    my ($opts, $cookies) = @_;
+
+    unless ($opts->{name}) {
+        die "Error: --name is required for delete command\n";
+    }
+
+    my $result = $cookies->delete($opts->{name},
+        url    => $opts->{url},
+        domain => $opts->{domain},
+        path   => $opts->{path},
+    );
+
+    if ($result) {
+        print "Cookie '$opts->{name}' deleted.\n";
+    }
+    else {
+        die "Failed to delete cookie: " . ($cookies->error // 'unknown') . "\n";
+    }
+}
+
+sub cmd_clear {
+    my ($cookies) = @_;
+
+    my $result = $cookies->clear();
+
+    if ($result) {
+        print "All cookies cleared.\n";
+    }
+    else {
+        die "Failed to clear cookies: " . ($cookies->error // 'unknown') . "\n";
+    }
+}
+
+sub cmd_save {
+    my ($opts, $cookies) = @_;
+
+    my $file = $opts->{file} || shift @ARGV;
+    unless ($file) {
+        die "Error: --file or filename argument required for save command\n";
+    }
+
+    my $result = $cookies->save($file);
+
+    if ($result) {
+        my @all = $cookies->get_all();
+        print "Saved " . scalar(@all) . " cookie(s) to $file\n";
+    }
+    else {
+        die "Failed to save cookies: " . ($cookies->error // 'unknown') . "\n";
+    }
+}
+
+sub cmd_load {
+    my ($opts, $cookies) = @_;
+
+    my $file = $opts->{file} || shift @ARGV;
+    unless ($file) {
+        die "Error: --file or filename argument required for load command\n";
+    }
+
+    my $count = $cookies->load($file);
+
+    if ($count) {
+        print "Loaded $count cookie(s) from $file\n";
+    }
+    elsif ($count == 0) {
+        print "No cookies in file or file empty.\n";
+    }
+    else {
+        die "Failed to load cookies: " . ($cookies->error // 'unknown') . "\n";
+    }
+}
+
+sub print_cookie {
+    my ($c) = @_;
+    print "---\n";
+    print "  Name:     $c->{name}\n";
+    print "  Value:    $c->{value}\n";
+    print "  Domain:   $c->{domain}\n" if $c->{domain};
+    print "  Path:     $c->{path}\n" if $c->{path};
+    print "  Secure:   " . ($c->{secure} ? 'yes' : 'no') . "\n";
+    print "  HttpOnly: " . ($c->{httpOnly} ? 'yes' : 'no') . "\n";
+    print "  SameSite: $c->{sameSite}\n" if $c->{sameSite};
+    if ($c->{expires} && $c->{expires} > 0) {
+        my $exp = localtime($c->{expires});
+        print "  Expires:  $exp\n";
+    }
+}
+
+sub print_usage {
+    print <<'USAGE';
+Usage: cookies COMMAND [OPTIONS]
+
+Manage browser cookies for session handling.
+
+Commands:
+  list              List all cookies (or filter by --url or --name)
+  get               Alias for list
+  set               Set a cookie
+  delete            Delete a cookie
+  clear             Clear all cookies
+  save              Save cookies to JSON file
+  load              Load cookies from JSON file
+
+Options:
+  --name=NAME       Cookie name (required for set/delete/get single)
+  --value=VALUE     Cookie value (required for set)
+  --domain=DOMAIN   Cookie domain
+  --path=PATH       Cookie path (default: /)
+  --url=URL         URL for cookie operations
+  --secure          Set Secure flag
+  --http-only       Set HttpOnly flag
+  --same-site=MODE  SameSite mode: Strict, Lax, or None
+  --expires=EPOCH   Expiration timestamp (epoch seconds)
+  --file=PATH       File path for save/load
+  --json            Output in JSON format
+  --help            Show this help
+
+Examples:
+  # List all cookies
+  cookies list
+
+  # List cookies as JSON
+  cookies list --json
+
+  # Get specific cookie
+  cookies get --name=session_id
+
+  # Set a session cookie
+  cookies set --name=auth_token --value=abc123 --domain=example.com
+
+  # Set secure cookie with expiration
+  cookies set --name=remember_me --value=user123 \
+    --domain=example.com --secure --http-only \
+    --expires=$(date -v+7d +%s)
+
+  # Delete a cookie
+  cookies delete --name=auth_token --domain=example.com
+
+  # Clear all cookies
+  cookies clear
+
+  # Save cookies for later
+  cookies save /tmp/session.json
+
+  # Restore cookies
+  cookies load /tmp/session.json
+
+USAGE
+}

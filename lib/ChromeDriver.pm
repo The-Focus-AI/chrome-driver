@@ -18,17 +18,18 @@ sub new {
     my $port = $opts{port} // $ENV{CHROME_DRIVER_PORT} // 9222;
 
     return bless {
-        host       => $opts{host} // 'localhost',
-        port       => $port,
-        timeout    => $opts{timeout} // $ENV{CHROME_DRIVER_TIMEOUT} // 30,
-        headless   => $opts{headless} // 1,
-        auto_start => $opts{auto_start} // 1,
-        user_data  => $opts{user_data},
-        protocol   => undef,
-        target_id  => undef,
-        launcher   => undef,
-        lifecycle  => Browser::Lifecycle->new(port => $port),
-        error      => undef,
+        host         => $opts{host} // 'localhost',
+        port         => $port,
+        timeout      => $opts{timeout} // $ENV{CHROME_DRIVER_TIMEOUT} // 30,
+        headless     => $opts{headless} // 1,
+        auto_start   => $opts{auto_start} // 1,
+        keep_running => $opts{keep_running} // 0,  # Don't shutdown Chrome on exit
+        user_data    => $opts{user_data},
+        protocol     => undef,
+        target_id    => undef,
+        launcher     => undef,
+        lifecycle    => Browser::Lifecycle->new(port => $port),
+        error        => undef,
     }, $class;
 }
 
@@ -50,10 +51,11 @@ sub ensure_chrome {
     # Create launcher if needed
     unless ($self->{launcher}) {
         $self->{launcher} = Browser::Launcher->new(
-            port      => $self->{port},
-            headless  => $self->{headless},
-            user_data => $self->{user_data},
-            timeout   => $self->{timeout},
+            port         => $self->{port},
+            headless     => $self->{headless},
+            keep_running => $self->{keep_running},
+            user_data    => $self->{user_data},
+            timeout      => $self->{timeout},
         );
     }
 
@@ -243,8 +245,8 @@ sub quit {
     # Close WebSocket connection first
     $self->close();
 
-    # Shutdown Chrome if we launched it
-    if ($self->{launcher} && $self->{launcher}->launched()) {
+    # Shutdown Chrome if we launched it (unless keep_running is set)
+    if ($self->{launcher} && $self->{launcher}->launched() && !$self->{keep_running}) {
         $self->{launcher}->shutdown();
         $self->{lifecycle}->remove_pid();
     }

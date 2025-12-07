@@ -176,6 +176,65 @@ bin/record https://example.com /tmp/frames --count=30 --format=png
 ffmpeg -framerate 10 -i /tmp/frames/frame-%04d.jpg -c:v libx264 output.mp4
 ```
 
+### cookies - Manage sessions and cookies
+
+```bash
+bin/cookies COMMAND [OPTIONS]
+```
+
+Commands:
+- `list` - List all cookies (or filter by --url or --name)
+- `get` - Alias for list
+- `set` - Set a cookie
+- `delete` - Delete a cookie
+- `clear` - Clear all cookies
+- `save` - Save cookies to JSON file
+- `load` - Load cookies from JSON file
+
+Options:
+- `--name=NAME` - Cookie name
+- `--value=VALUE` - Cookie value (required for set)
+- `--domain=DOMAIN` - Cookie domain
+- `--url=URL` - URL for cookie operations
+- `--secure` - Set Secure flag
+- `--http-only` - Set HttpOnly flag
+- `--same-site=MODE` - SameSite: Strict, Lax, or None
+- `--expires=EPOCH` - Expiration timestamp (epoch seconds)
+- `--file=PATH` - File path for save/load
+- `--json` - Output in JSON format
+
+Examples:
+```bash
+# List all cookies
+bin/cookies list
+
+# List cookies as JSON
+bin/cookies list --json
+
+# Get specific cookie by name
+bin/cookies get --name=session_id
+
+# Set a session cookie
+bin/cookies set --name=auth_token --value=abc123 --domain=example.com
+
+# Set secure cookie with expiration (1 week from now)
+bin/cookies set --name=remember_me --value=user123 \
+  --domain=example.com --secure --http-only \
+  --expires=$(date -v+7d +%s)
+
+# Delete a cookie
+bin/cookies delete --name=auth_token --domain=example.com
+
+# Clear all cookies
+bin/cookies clear
+
+# Save session for later
+bin/cookies save /tmp/session.json
+
+# Restore session
+bin/cookies load /tmp/session.json
+```
+
 ### chrome-status - Check browser status
 
 ```bash
@@ -216,10 +275,43 @@ bin/record https://example.com /tmp/frames --duration=10
 ffmpeg -framerate 10 -i /tmp/frames/frame-%04d.jpg -c:v libx264 video.mp4
 ```
 
+### Manage sessions (login persistence)
+```bash
+# Login to a site
+bin/form https://example.com/login \
+  --fill='#email=user@example.com' \
+  --fill='#password=secret' \
+  --submit='button[type=submit]'
+
+# Save the session cookies
+bin/cookies save /tmp/my_session.json
+
+# Later, restore the session (skip login)
+bin/cookies load /tmp/my_session.json
+
+# Now you can access authenticated pages
+bin/screenshot https://example.com/dashboard /tmp/dashboard.png
+```
+
+### Automate authenticated workflows
+```bash
+# Load saved session
+bin/cookies load ~/.sessions/mysite.json
+
+# Perform authenticated actions
+bin/extract https://example.com/account --format=text
+bin/screenshot https://example.com/orders /tmp/orders.png
+
+# Save any new cookies (e.g., refreshed tokens)
+bin/cookies save ~/.sessions/mysite.json
+```
+
 ## Notes
 
 - Chrome auto-starts in headless mode when needed
 - Chrome continues running between commands for speed
+- Cookies persist between commands while Chrome is running
+- Use `bin/cookies save/load` to persist sessions across browser restarts
 - Use `pkill -f 'chrome.*--remote-debugging-port'` to stop Chrome manually
 - Default port is 9222; set `CHROME_DRIVER_PORT` to change
 - All scripts support `--help` for full usage info

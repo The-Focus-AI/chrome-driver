@@ -43,6 +43,7 @@ sub new {
     my $self = bless {
         port         => $opts{port} // $ENV{CHROME_DRIVER_PORT} // DEFAULT_PORT,
         headless     => $opts{headless} // 1,
+        keep_running => $opts{keep_running} // 0,  # Don't kill Chrome on exit
         user_data    => $opts{user_data},
         chrome_path  => $opts{chrome_path},
         extra_args   => $opts{extra_args} // [],
@@ -376,7 +377,7 @@ sub launched {
 
 sub DESTROY {
     my ($self) = @_;
-    $self->shutdown() if $self->{pid};
+    $self->shutdown() if $self->{pid} && !$self->{keep_running};
 }
 
 1;
