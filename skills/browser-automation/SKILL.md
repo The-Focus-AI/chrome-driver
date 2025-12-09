@@ -10,12 +10,12 @@ Control Chrome browser programmatically using simple command-line scripts. All s
 
 ## Available Commands
 
-All scripts are in `bin/`:
+All scripts are in `${CLAUDE_PLUGIN_ROOT}/bin/`. Use the full path when running commands:
 
 ### screenshot - Capture web pages as images
 
 ```bash
-bin/screenshot URL [OUTPUT] [OPTIONS]
+${CLAUDE_PLUGIN_ROOT}/bin/screenshot URL [OUTPUT] [OPTIONS]
 ```
 
 Options:
@@ -29,19 +29,19 @@ Options:
 Examples:
 ```bash
 # Basic screenshot
-bin/screenshot https://example.com /tmp/page.png
+${CLAUDE_PLUGIN_ROOT}/bin/screenshot https://example.com /tmp/page.png
 
 # Full page as JPEG
-bin/screenshot https://example.com /tmp/full.jpg --full-page --format=jpeg
+${CLAUDE_PLUGIN_ROOT}/bin/screenshot https://example.com /tmp/full.jpg --full-page --format=jpeg
 
 # Capture specific element
-bin/screenshot https://example.com /tmp/header.png --selector="header"
+${CLAUDE_PLUGIN_ROOT}/bin/screenshot https://example.com /tmp/header.png --selector="header"
 ```
 
 ### pdf - Generate PDFs from web pages
 
 ```bash
-bin/pdf URL [OUTPUT] [OPTIONS]
+${CLAUDE_PLUGIN_ROOT}/bin/pdf URL [OUTPUT] [OPTIONS]
 ```
 
 Options:
@@ -54,19 +54,19 @@ Options:
 Examples:
 ```bash
 # Basic PDF
-bin/pdf https://example.com /tmp/doc.pdf
+${CLAUDE_PLUGIN_ROOT}/bin/pdf https://example.com /tmp/doc.pdf
 
 # A4 landscape
-bin/pdf https://example.com /tmp/report.pdf --paper=a4 --landscape
+${CLAUDE_PLUGIN_ROOT}/bin/pdf https://example.com /tmp/report.pdf --paper=a4 --landscape
 
 # Tight margins
-bin/pdf https://example.com /tmp/compact.pdf --margin=0.25
+${CLAUDE_PLUGIN_ROOT}/bin/pdf https://example.com /tmp/compact.pdf --margin=0.25
 ```
 
 ### extract - Extract content from web pages
 
 ```bash
-bin/extract URL [OPTIONS]
+${CLAUDE_PLUGIN_ROOT}/bin/extract URL [OPTIONS]
 ```
 
 Options:
@@ -79,19 +79,19 @@ Options:
 Examples:
 ```bash
 # Get page as markdown
-bin/extract https://example.com
+${CLAUDE_PLUGIN_ROOT}/bin/extract https://example.com
 
 # Get plain text from article
-bin/extract https://example.com --format=text --selector="article"
+${CLAUDE_PLUGIN_ROOT}/bin/extract https://example.com --format=text --selector="article"
 
 # Get all links and metadata
-bin/extract https://example.com --links --metadata
+${CLAUDE_PLUGIN_ROOT}/bin/extract https://example.com --links --metadata
 ```
 
 ### navigate - Navigate and interact with pages
 
 ```bash
-bin/navigate URL [OPTIONS]
+${CLAUDE_PLUGIN_ROOT}/bin/navigate URL [OPTIONS]
 ```
 
 Options:
@@ -104,19 +104,19 @@ Options:
 Examples:
 ```bash
 # Navigate and wait for content
-bin/navigate https://example.com --wait-for="#content"
+${CLAUDE_PLUGIN_ROOT}/bin/navigate https://example.com --wait-for="#content"
 
 # Fill form and submit
-bin/navigate https://google.com --type="input[name=q]=hello" --click="input[type=submit]"
+${CLAUDE_PLUGIN_ROOT}/bin/navigate https://google.com --type="input[name=q]=hello" --click="input[type=submit]"
 
 # Get page title via JavaScript
-bin/navigate https://example.com --eval="document.title"
+${CLAUDE_PLUGIN_ROOT}/bin/navigate https://example.com --eval="document.title"
 ```
 
 ### form - Fill out and submit web forms
 
 ```bash
-bin/form URL [OPTIONS]
+${CLAUDE_PLUGIN_ROOT}/bin/form URL [OPTIONS]
 ```
 
 Options:
@@ -131,20 +131,20 @@ Options:
 Examples:
 ```bash
 # Login form
-bin/form https://example.com/login \
+${CLAUDE_PLUGIN_ROOT}/bin/form https://example.com/login \
   --fill='#username=john' \
   --fill='#password=secret' \
   --submit='button[type=submit]'
 
 # Form with dropdowns
-bin/form https://example.com/register \
+${CLAUDE_PLUGIN_ROOT}/bin/form https://example.com/register \
   --fill='#name=John Doe' \
   --fill='#email=john@example.com' \
   --select='#country=US' \
   --submit='#register-btn'
 
 # Using JSON
-bin/form https://example.com/contact \
+${CLAUDE_PLUGIN_ROOT}/bin/form https://example.com/contact \
   --fill-json='{"#name":"John","#email":"john@test.com"}' \
   --submit='button.send'
 ```
@@ -152,7 +152,7 @@ bin/form https://example.com/contact \
 ### record - Record screencast frames
 
 ```bash
-bin/record URL OUTPUT_DIR [OPTIONS]
+${CLAUDE_PLUGIN_ROOT}/bin/record URL OUTPUT_DIR [OPTIONS]
 ```
 
 Options:
@@ -167,10 +167,10 @@ Options:
 Examples:
 ```bash
 # Record 5 seconds
-bin/record https://example.com /tmp/frames
+${CLAUDE_PLUGIN_ROOT}/bin/record https://example.com /tmp/frames
 
 # Record 30 PNG frames
-bin/record https://example.com /tmp/frames --count=30 --format=png
+${CLAUDE_PLUGIN_ROOT}/bin/record https://example.com /tmp/frames --count=30 --format=png
 
 # Convert to video with ffmpeg
 ffmpeg -framerate 10 -i /tmp/frames/frame-%04d.jpg -c:v libx264 output.mp4
@@ -179,7 +179,7 @@ ffmpeg -framerate 10 -i /tmp/frames/frame-%04d.jpg -c:v libx264 output.mp4
 ### cookies - Manage sessions and cookies
 
 ```bash
-bin/cookies COMMAND [OPTIONS]
+${CLAUDE_PLUGIN_ROOT}/bin/cookies COMMAND [OPTIONS]
 ```
 
 Commands:
@@ -206,39 +206,39 @@ Options:
 Examples:
 ```bash
 # List all cookies
-bin/cookies list
+${CLAUDE_PLUGIN_ROOT}/bin/cookies list
 
 # List cookies as JSON
-bin/cookies list --json
+${CLAUDE_PLUGIN_ROOT}/bin/cookies list --json
 
 # Get specific cookie by name
-bin/cookies get --name=session_id
+${CLAUDE_PLUGIN_ROOT}/bin/cookies get --name=session_id
 
 # Set a session cookie
-bin/cookies set --name=auth_token --value=abc123 --domain=example.com
+${CLAUDE_PLUGIN_ROOT}/bin/cookies set --name=auth_token --value=abc123 --domain=example.com
 
 # Set secure cookie with expiration (1 week from now)
-bin/cookies set --name=remember_me --value=user123 \
+${CLAUDE_PLUGIN_ROOT}/bin/cookies set --name=remember_me --value=user123 \
   --domain=example.com --secure --http-only \
   --expires=$(date -v+7d +%s)
 
 # Delete a cookie
-bin/cookies delete --name=auth_token --domain=example.com
+${CLAUDE_PLUGIN_ROOT}/bin/cookies delete --name=auth_token --domain=example.com
 
 # Clear all cookies
-bin/cookies clear
+${CLAUDE_PLUGIN_ROOT}/bin/cookies clear
 
 # Save session for later
-bin/cookies save /tmp/session.json
+${CLAUDE_PLUGIN_ROOT}/bin/cookies save /tmp/session.json
 
 # Restore session
-bin/cookies load /tmp/session.json
+${CLAUDE_PLUGIN_ROOT}/bin/cookies load /tmp/session.json
 ```
 
 ### chrome-status - Check browser status
 
 ```bash
-bin/chrome-status
+${CLAUDE_PLUGIN_ROOT}/bin/chrome-status
 ```
 
 Shows whether Chrome is running, version info, and open tabs.
@@ -247,22 +247,22 @@ Shows whether Chrome is running, version info, and open tabs.
 
 ### Screenshot a page
 ```bash
-bin/screenshot https://example.com /tmp/screenshot.png
+${CLAUDE_PLUGIN_ROOT}/bin/screenshot https://example.com /tmp/screenshot.png
 ```
 
 ### Convert page to PDF
 ```bash
-bin/pdf https://example.com /tmp/document.pdf --paper=a4
+${CLAUDE_PLUGIN_ROOT}/bin/pdf https://example.com /tmp/document.pdf --paper=a4
 ```
 
 ### Scrape page content
 ```bash
-bin/extract https://example.com --format=markdown
+${CLAUDE_PLUGIN_ROOT}/bin/extract https://example.com --format=markdown
 ```
 
 ### Fill and submit a form
 ```bash
-bin/form https://example.com/login \
+${CLAUDE_PLUGIN_ROOT}/bin/form https://example.com/login \
   --fill='#username=user' \
   --fill='#password=pass' \
   --submit='button[type=submit]' \
@@ -271,39 +271,39 @@ bin/form https://example.com/login \
 
 ### Record a screencast
 ```bash
-bin/record https://example.com /tmp/frames --duration=10
+${CLAUDE_PLUGIN_ROOT}/bin/record https://example.com /tmp/frames --duration=10
 ffmpeg -framerate 10 -i /tmp/frames/frame-%04d.jpg -c:v libx264 video.mp4
 ```
 
 ### Manage sessions (login persistence)
 ```bash
 # Login to a site
-bin/form https://example.com/login \
+${CLAUDE_PLUGIN_ROOT}/bin/form https://example.com/login \
   --fill='#email=user@example.com' \
   --fill='#password=secret' \
   --submit='button[type=submit]'
 
 # Save the session cookies
-bin/cookies save /tmp/my_session.json
+${CLAUDE_PLUGIN_ROOT}/bin/cookies save /tmp/my_session.json
 
 # Later, restore the session (skip login)
-bin/cookies load /tmp/my_session.json
+${CLAUDE_PLUGIN_ROOT}/bin/cookies load /tmp/my_session.json
 
 # Now you can access authenticated pages
-bin/screenshot https://example.com/dashboard /tmp/dashboard.png
+${CLAUDE_PLUGIN_ROOT}/bin/screenshot https://example.com/dashboard /tmp/dashboard.png
 ```
 
 ### Automate authenticated workflows
 ```bash
 # Load saved session
-bin/cookies load ~/.sessions/mysite.json
+${CLAUDE_PLUGIN_ROOT}/bin/cookies load ~/.sessions/mysite.json
 
 # Perform authenticated actions
-bin/extract https://example.com/account --format=text
-bin/screenshot https://example.com/orders /tmp/orders.png
+${CLAUDE_PLUGIN_ROOT}/bin/extract https://example.com/account --format=text
+${CLAUDE_PLUGIN_ROOT}/bin/screenshot https://example.com/orders /tmp/orders.png
 
 # Save any new cookies (e.g., refreshed tokens)
-bin/cookies save ~/.sessions/mysite.json
+${CLAUDE_PLUGIN_ROOT}/bin/cookies save ~/.sessions/mysite.json
 ```
 
 ## Notes
