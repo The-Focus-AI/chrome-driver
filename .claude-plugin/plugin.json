@@ -17,15 +17,15 @@
     "perl"
   ],
   "skills": [
-    "./skills/browser-automation"
+    "./.claude-plugin/skills/browser-automation"
   ],
   "commands": [
-    "./commands/browser.md",
-    "./commands/screenshot.md",
-    "./commands/pdf.md",
-    "./commands/extract.md"
+    "./.claude-plugin/commands/browser.md",
+    "./.claude-plugin/commands/screenshot.md",
+    "./.claude-plugin/commands/pdf.md",
+    "./.claude-plugin/commands/extract.md"
   ],
   "hooks": [
-    "./hooks/hooks.json"
+    "./.claude-plugin/hooks/hooks.json"
   ]
 }
