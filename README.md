@@ -21,19 +21,20 @@ A Claude Code plugin that enables LLMs to interact with web pages through Chrome
 
 ### Install Plugin
 
+**Via Claude Code Marketplace (Recommended):**
+```bash
+# In Claude Code, run:
+/install-plugin https://github.com/Focus-AI/chrome-driver
+```
+
+**Manual Installation:**
 ```bash
 # Clone repository
 git clone https://github.com/Focus-AI/chrome-driver
 cd chrome-driver
 
-# Install to Claude Code
-cp -r .claude-plugin ~/.config/claude/plugins/chrome-driver
-cp -r .claude/skills ~/.config/claude/plugins/chrome-driver/
-cp -r .claude/commands ~/.config/claude/plugins/chrome-driver/
-cp -r .claude/hooks ~/.config/claude/plugins/chrome-driver/
-
-# Or use Claude Code plugin manager (if available)
-/plugin install chrome-driver
+# The plugin is self-contained in .claude-plugin/
+# Point Claude Code to this directory or copy to your plugins location
 ```
 
 ## Quick Start
@@ -60,6 +61,11 @@ Quick commands for common tasks:
 /screenshot URL       # Take screenshot
 /pdf URL              # Generate PDF
 /extract URL          # Extract content
+/navigate URL         # Navigate and interact
+/interact             # Multi-step interactions (no page reload)
+/form URL             # Fill and submit forms
+/record URL DIR       # Record screencast frames
+/cookies              # Manage sessions
 ```
 
 ### Direct Perl Usage

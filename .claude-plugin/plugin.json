@@ -23,7 +23,12 @@
     "./.claude-plugin/commands/browser.md",
     "./.claude-plugin/commands/screenshot.md",
     "./.claude-plugin/commands/pdf.md",
-    "./.claude-plugin/commands/extract.md"
+    "./.claude-plugin/commands/extract.md",
+    "./.claude-plugin/commands/navigate.md",
+    "./.claude-plugin/commands/interact.md",
+    "./.claude-plugin/commands/form.md",
+    "./.claude-plugin/commands/record.md",
+    "./.claude-plugin/commands/cookies.md"
   ],
   "hooks": [
     "./.claude-plugin/hooks/hooks.json"

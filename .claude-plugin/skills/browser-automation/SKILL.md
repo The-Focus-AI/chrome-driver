@@ -1,5 +1,5 @@
 ---
-description: Automate Chrome browser via DevTools Protocol. Use when user asks to scrape websites, take screenshots, generate PDFs, interact with web pages, extract content, fill forms, or automate browser tasks. (project)
+description: Automate Chrome browser via DevTools Protocol. Use when user asks to scrape websites, take screenshots, generate PDFs, interact with web pages, extract content, fill forms, or automate browser tasks.
 ---
 
 # Browser Automation with Chrome DevTools Protocol
@@ -525,3 +525,216 @@ Extract information to make decisions:
 5. **Use `--eval` liberally** to inspect page state and find elements
 6. **Add `sleep` between actions** if the site needs time to update
 7. **Check results after each step** to verify the action worked
+
+---
+
+## Instacart Automation Guide (Tested & Proven Patterns)
+
+This section contains battle-tested patterns for automating Instacart shopping. These patterns were developed through extensive real-world testing.
+
+### Quick Reference: Essential Commands
+
+```bash
+# Base command pattern (always use these flags)
+INTERACT="${CLAUDE_PLUGIN_ROOT}/bin/interact --no-headless --user-data=~/.chrome-instacart"
+NAVIGATE="${CLAUDE_PLUGIN_ROOT}/bin/navigate --no-headless --user-data=~/.chrome-instacart"
+
+# Suppress stderr noise
+$INTERACT --eval="..." 2>/dev/null
+```
+
+### Store Selection
+
+**CRITICAL: Never construct Instacart URLs manually.** Always navigate via the UI:
+
+```bash
+# Go to homepage first
+$NAVIGATE "https://www.instacart.com"
+
+# Find store links on page
+$INTERACT --eval="Array.from(document.querySelectorAll('a')).filter(a => a.innerText.includes('Stop & Shop')).map(a => ({text: a.innerText, href: a.href}))"
+
+# Click the store link found above (or navigate to storefront)
+$NAVIGATE "https://www.instacart.com/store/stop-shop/storefront"
+```
+
+### Search Pattern (Reliable 3-Step Process)
+
+```bash
+# Step 1: Clear existing search (IMPORTANT - prevents concatenation)
+$INTERACT --eval="var input = document.querySelector('#search-bar-input'); input.select(); document.execCommand('delete'); 'cleared'" 2>/dev/null
+
+# Step 2: Type search term
+$INTERACT --type="#search-bar-input=pork shoulder" 2>/dev/null
+
+# Step 3: Submit form (dispatchEvent is most reliable for SPAs)
+$INTERACT --eval="document.querySelector('#search-bar-input').closest('form').dispatchEvent(new Event('submit', {bubbles: true, cancelable: true})); 'submitted'" 2>/dev/null && sleep 3
+```
+
+**Combined one-liner for efficiency:**
+```bash
+$INTERACT --eval="var input = document.querySelector('#search-bar-input'); input.select(); document.execCommand('delete'); 'cleared'" 2>/dev/null && \
+$INTERACT --type="#search-bar-input=SEARCH_TERM" 2>/dev/null && \
+$INTERACT --eval="document.querySelector('#search-bar-input').closest('form').dispatchEvent(new Event('submit', {bubbles: true, cancelable: true})); 'submitted'" 2>/dev/null && sleep 3
+```
+
+### Product Discovery: Finding Available Items
+
+**List available "Add" buttons (shows product names):**
+```bash
+$INTERACT --eval="JSON.stringify(Array.from(document.querySelectorAll('button[aria-label*=\"Add\"]')).slice(0,8).map(b => b.getAttribute('aria-label')))" 2>/dev/null
+```
+
+**Get page content to see prices and sizes:**
+```bash
+$INTERACT --eval="document.body.innerText.substring(0, 4000)" 2>/dev/null
+```
+
+### Adding Products to Cart
+
+**Instacart uses aria-labels for product buttons. Key patterns:**
+
+| Action | Aria-label Pattern |
+|--------|-------------------|
+| Add item | `Add 1 ct [Product Name]` or `Add 1 lb [Product Name]` |
+| Increment | `Increment quantity of [Product Name]` |
+| Decrement | `Decrement quantity of [Product Name]` |
+| Remove | `Remove [Product Name]` |
+
+**Add a product (exact match):**
+```bash
+$INTERACT --eval="var btn = document.querySelector('button[aria-label=\"Add 1 ct Store Brand Baby Spinach\"]'); if(btn) { btn.click(); 'Added'; } else { 'Not found'; }" 2>/dev/null
+```
+
+**Add a product (partial match - more flexible):**
+```bash
+$INTERACT --eval="var btn = document.querySelector('button[aria-label*=\"Add\"][aria-label*=\"Spinach\"]'); if(btn) { btn.click(); 'Added'; } else { 'Not found'; }" 2>/dev/null
+```
+
+### Quantity Management
+
+**Increment quantity (add more of same item):**
+```bash
+$INTERACT --eval="var btn = document.querySelector('button[aria-label*=\"Increment\"][aria-label*=\"Avocado\"]'); if(btn) { btn.click(); 'Incremented'; } else { 'Not found'; }" 2>/dev/null
+```
+
+**Increment multiple times (e.g., get 6 avocados):**
+```bash
+# Add first one, then increment 5 times
+$INTERACT --eval="document.querySelector('button[aria-label*=\"Add\"][aria-label*=\"Avocado\"]').click(); 'Added 1'" 2>/dev/null && sleep 1
+for i in 1 2 3 4 5; do
+  sleep 0.5
+  $INTERACT --eval="var btn = document.querySelector('button[aria-label*=\"Increment\"][aria-label*=\"Avocado\"]'); if(btn) btn.click(); 'Inc'" 2>/dev/null
+done
+```
+
+**JavaScript loop for multiple increments (faster):**
+```bash
+$INTERACT --eval="for(let i=0;i<5;i++){var btn=document.querySelector('button[aria-label*=\"Increment\"][aria-label*=\"Lemon\"]');if(btn)btn.click();} 'Incremented to 6'" 2>/dev/null
+```
+
+**Remove item from cart:**
+```bash
+$INTERACT --eval="var btn = document.querySelector('button[aria-label=\"Remove Bertolli Original Extra Virgin Olive Oil\"]'); if(btn) { btn.click(); 'Removed'; } else { 'Not found'; }" 2>/dev/null
+```
+
+### Cart Management
+
+**View cart (click cart badge):**
+```bash
+$INTERACT --eval="var badge = Array.from(document.querySelectorAll('*')).find(el => /^\\d+$/.test(el.innerText.trim()) && parseInt(el.innerText) > 10 && el.offsetWidth < 50); if(badge) { var parent = badge.closest('a') || badge.closest('button') || badge.parentElement.parentElement; if(parent) parent.click(); 'clicked cart'; } else { 'cart not found'; }" 2>/dev/null && sleep 2
+```
+
+**Get cart total:**
+```bash
+$INTERACT --eval="document.body.innerText.match(/\\$\\d{2,3}\\.\\d{2}/) ? document.body.innerText.match(/\\$\\d{2,3}\\.\\d{2}/)[0] : 'no total found'" 2>/dev/null
+```
+
+**List all items in cart with prices (when cart panel is open):**
+```bash
+$INTERACT --eval="document.body.innerText.substring(5500, 12000)" 2>/dev/null
+```
+
+**Find all remove/decrement buttons in cart:**
+```bash
+$INTERACT --eval="Array.from(document.querySelectorAll('button')).filter(b => b.getAttribute('aria-label') && (b.getAttribute('aria-label').includes('Remove') || b.getAttribute('aria-label').includes('Decrement'))).slice(0,20).map(b => b.getAttribute('aria-label')).join(' | ')" 2>/dev/null
+```
+
+### Complete Shopping Workflow
+
+**Efficient pattern for adding multiple items:**
+
+```bash
+# Function to search and add item
+add_item() {
+  local search="$1"
+  local product="$2"
+  local qty="${3:-1}"
+
+  # Search
+  $INTERACT --eval="var input = document.querySelector('#search-bar-input'); input.select(); document.execCommand('delete'); 'cleared'" 2>/dev/null
+  $INTERACT --type="#search-bar-input=$search" 2>/dev/null
+  $INTERACT --eval="document.querySelector('#search-bar-input').closest('form').dispatchEvent(new Event('submit', {bubbles: true, cancelable: true})); 'submitted'" 2>/dev/null
+  sleep 3
+
+  # Add
+  $INTERACT --eval="var btn = document.querySelector('button[aria-label*=\"Add\"][aria-label*=\"$product\"]'); if(btn) { btn.click(); 'Added'; } else { 'Not found'; }" 2>/dev/null
+  sleep 1
+
+  # Increment if qty > 1
+  if [ "$qty" -gt 1 ]; then
+    for i in $(seq 2 $qty); do
+      sleep 0.5
+      $INTERACT --eval="var btn = document.querySelector('button[aria-label*=\"Increment\"][aria-label*=\"$product\"]'); if(btn) btn.click();" 2>/dev/null
+    done
+  fi
+}
+
+# Usage examples:
+add_item "avocados" "Hass Avocado" 6
+add_item "baby spinach" "Store Brand Baby Spinach" 2
+add_item "bell peppers" "Green Bell Pepper" 2
+```
+
+### Troubleshooting Instacart-Specific Issues
+
+**Problem: Search terms concatenate (e.g., "lemonsfresh thyme")**
+- **Cause**: Previous search text not cleared
+- **Solution**: Always clear with `input.select(); document.execCommand('delete')` before typing
+
+**Problem: "Add" button not found**
+- **Cause**: Product name in aria-label doesn't match search
+- **Solution**:
+  1. List available buttons: `JSON.stringify(Array.from(document.querySelectorAll('button[aria-label*="Add"]')).slice(0,8).map(b => b.getAttribute('aria-label')))`
+  2. Use partial match: `aria-label*="Add"][aria-label*="partial name"`
+
+**Problem: Store not available at address**
+- **Cause**: Instacart shows different stores based on delivery address
+- **Solution**: Check which stores are available at current address, or change address
+
+**Problem: Cart shows wrong item count**
+- **Cause**: Some items are sold by weight (e.g., meat shows as 1 item but weighs 5 lbs)
+- **Solution**: This is normal - check cart details for actual quantities
+
+**Problem: Prices differ between stores**
+- **Cause**: Each store has independent pricing
+- **Solution**: Compare carts between stores, swap expensive items for alternatives
+
+### Product Selection Tips
+
+1. **Prefer Store Brand** - Usually cheapest option, search results often show store brand
+2. **Check sizes** - "16 oz" vs "50.7 oz" significantly affects price
+3. **Value packs** - Look for "Value Pack" in product names for better per-unit pricing
+4. **Per-pound items** - Meat/produce sold by weight; qty is weight, not count
+5. **Watch for sales** - "With loyalty card" prices shown in results
+
+### Key Lessons Learned
+
+1. **Always use `interact` after initial `navigate`** - Instacart is an SPA; navigation resets state
+2. **Clear search input before new searches** - Prevents concatenation bugs
+3. **Use aria-label selectors** - Most reliable way to find Instacart buttons
+4. **Add `2>/dev/null`** - Suppresses noisy stderr output from Chrome driver
+5. **Add `sleep 3` after search submit** - Allow time for results to load
+6. **Partial aria-label matches (`*=`)** - More robust than exact matches
+7. **Check cart periodically** - Verify items added correctly
+8. **Store availability varies by address** - Not all stores deliver everywhere
