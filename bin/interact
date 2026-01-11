@@ -1,0 +1,175 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Getopt::Long;
+
+use ChromeDriver;
+use DOM::Elements;
+use JS::Execute;
+
+# Interact with the current browser page without navigating
+#
+# Usage: interact [OPTIONS]
+#   interact --eval="document.title"
+#   interact --click="button.submit"
+#   interact --type="#search=hello world"
+#   interact --wait-for=".results"
+
+my $click = '';
+my $type = '';
+my $eval = '';
+my $wait_for = '';
+my $select = '';
+my $focus = '';
+my $text = '';
+my $timeout = 30;
+my $headless = 1;
+my $user_data = '';
+my $help = 0;
+
+GetOptions(
+    'click=s'     => \$click,
+    'type=s'      => \$type,
+    'eval=s'      => \$eval,
+    'wait-for=s'  => \$wait_for,
+    'select=s'    => \$select,
+    'focus=s'     => \$focus,
+    'text=s'      => \$text,
+    'timeout=i'   => \$timeout,
+    'no-headless' => sub { $headless = 0 },
+    'user-data=s' => \$user_data,
+    'help'        => \$help,
+) or die "Error in command line arguments\n";
+
+if ($help) {
+    print <<'USAGE';
+Usage: interact [OPTIONS]
+
+Interact with the current browser page without navigating away.
+Connects to the existing Chrome instance and performs actions on the current page.
+
+Options:
+  --click=SELECTOR      Click element matching CSS selector
+  --type=SELECTOR=TEXT  Type text into element (format: selector=text)
+  --eval=JAVASCRIPT     Execute JavaScript and print result
+  --wait-for=SELECTOR   Wait for element to appear
+  --select=SELECTOR=VAL Select dropdown option (format: selector=value)
+  --focus=SELECTOR      Focus an element
+  --text=SELECTOR       Get text content of element
+  --timeout=SECONDS     Timeout in seconds (default: 30)
+  --no-headless         Run Chrome with visible window (for interactive use)
+  --user-data=PATH      Chrome profile directory (preserves cookies/login)
+  --help                Show this help
+
+Examples:
+  # Execute JavaScript on current page
+  interact --eval="document.title"
+  interact --eval="document.body.innerText.substring(0, 500)"
+
+  # Click a button
+  interact --click="button.submit"
+  interact --click="#add-to-cart"
+
+  # Type into an input
+  interact --type="#search-input=pork shoulder"
+
+  # Wait for element then click
+  interact --wait-for=".results" --click=".results .first-item"
+
+  # Get text from element
+  interact --text="h1.page-title"
+
+  # Chain multiple actions (executed in order)
+  interact --focus="#search" --type="#search=query" --click="#search-btn"
+
+Notes:
+  - Actions are executed in order: wait-for -> focus -> type -> select -> click -> eval -> text
+  - This command does NOT navigate - it works with the current page
+  - Use 'navigate' command first to go to a URL, then 'interact' for actions
+USAGE
+    exit(0);
+}
+
+# Connect to Chrome (don't navigate, just connect to existing page)
+my %chrome_opts = (headless => $headless, timeout => $timeout, keep_running => 1, auto_start => 0);
+$chrome_opts{user_data} = $user_data if $user_data;
+my $chrome = ChromeDriver->new(%chrome_opts);
+$chrome->connect_to_page() or die "Failed to connect: " . $chrome->error . "\n";
+
+my $dom = DOM::Elements->new(chrome => $chrome);
+my $js = JS::Execute->new(chrome => $chrome);
+
+# Get current URL for reference
+my $url_result = $js->evaluate('window.location.href');
+print "Current page: $url_result\n" if $url_result;
+
+# Wait for element if requested
+if ($wait_for) {
+    print "Waiting for: $wait_for\n";
+    my $el = $dom->wait_for($wait_for, $timeout);
+    unless ($el) {
+        die "Timeout waiting for: $wait_for\n";
+    }
+    print "Found: $wait_for\n";
+}
+
+# Focus element if requested
+if ($focus) {
+    print "Focusing: $focus\n";
+    $dom->focus($focus) or warn "Failed to focus: " . ($dom->error // 'unknown') . "\n";
+}
+
+# Type into element if requested
+if ($type) {
+    my ($selector, $value) = split /=/, $type, 2;
+    unless (defined $value) {
+        die "Invalid --type format. Use: --type='selector=text'\n";
+    }
+    print "Typing into: $selector\n";
+    $dom->type($selector, $value) or die "Failed to type: " . ($dom->error // 'element not found') . "\n";
+}
+
+# Select dropdown option if requested
+if ($select) {
+    my ($selector, $value) = split /=/, $select, 2;
+    unless (defined $value) {
+        die "Invalid --select format. Use: --select='selector=value'\n";
+    }
+    print "Selecting: $selector = $value\n";
+    $dom->select($selector, $value) or warn "Failed to select: " . ($dom->error // 'unknown') . "\n";
+}
+
+# Click element if requested
+if ($click) {
+    print "Clicking: $click\n";
+    $dom->click($click) or die "Failed to click: " . ($dom->error // 'element not found') . "\n";
+
+    # Brief wait for any effects
+    select(undef, undef, undef, 0.5);
+}
+
+# Evaluate JavaScript if requested
+if ($eval) {
+    print "Evaluating: $eval\n";
+    my $result = $js->evaluate($eval);
+    if (defined $result) {
+        print "Result: $result\n";
+    } else {
+        print "Result: (undefined)\n";
+    }
+}
+
+# Get text content if requested
+if ($text) {
+    print "Getting text from: $text\n";
+    my $content = $dom->get_text($text);
+    if (defined $content) {
+        print "Text: $content\n";
+    } else {
+        print "Text: (not found)\n";
+    }
+}
+
+print "Done.\n";

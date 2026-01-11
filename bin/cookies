@@ -13,7 +13,14 @@ use JSON::PP;
 # Usage: cookies COMMAND [OPTIONS]
 
 my $help = 0;
-GetOptions('help|h' => \$help);
+my $headless = 1;
+my $user_data = '';
+
+GetOptions(
+    'help|h'      => \$help,
+    'no-headless' => sub { $headless = 0 },
+    'user-data=s' => \$user_data,
+);
 
 if ($help || !@ARGV) {
     print_usage();
@@ -39,7 +46,9 @@ GetOptions(
 );
 
 # Connect to Chrome (keep_running=1 for session persistence between CLI calls)
-my $chrome = ChromeDriver->new(headless => 1, timeout => 30, keep_running => 1);
+my %chrome_opts = (headless => $headless, timeout => 30, keep_running => 1);
+$chrome_opts{user_data} = $user_data if $user_data;
+my $chrome = ChromeDriver->new(%chrome_opts);
 unless ($chrome->connect_to_page()) {
     die "Failed to connect to Chrome: " . ($chrome->error // 'unknown') . "\n";
 }
@@ -258,6 +267,8 @@ Options:
   --expires=EPOCH   Expiration timestamp (epoch seconds)
   --file=PATH       File path for save/load
   --json            Output in JSON format
+  --no-headless     Run Chrome with visible window (for interactive use)
+  --user-data=PATH  Chrome profile directory (preserves cookies/login)
   --help            Show this help
 
 Examples:

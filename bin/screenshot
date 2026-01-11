@@ -27,6 +27,8 @@ my $height = 0;
 my $max_dimension = 8000;
 my $wait = 0;
 my $wait_for = '';
+my $headless = 1;
+my $user_data = '';
 my $help = 0;
 
 GetOptions(
@@ -39,6 +41,8 @@ GetOptions(
     'max-dimension=i' => \$max_dimension,
     'wait=i'          => \$wait,
     'wait-for=s'      => \$wait_for,
+    'no-headless'     => sub { $headless = 0 },
+    'user-data=s'     => \$user_data,
     'help'            => \$help,
 ) or die "Error in command line arguments\n";
 
@@ -60,6 +64,8 @@ Options:
   --max-dimension=N  Max output dimension in pixels (default: 8000, auto-scales)
   --wait=N           Wait N seconds after page load (for SPAs with async data)
   --wait-for=CSS     Wait for CSS selector to appear before screenshot
+  --no-headless      Run Chrome with visible window (for interactive use)
+  --user-data=PATH   Chrome profile directory (preserves cookies/login)
   --help             Show this help
 
 Examples:
@@ -83,7 +89,9 @@ unless ($output) {
 }
 
 # Connect to Chrome
-my $chrome = ChromeDriver->new(headless => 1, timeout => 30);
+my %chrome_opts = (headless => $headless, timeout => 30, keep_running => 1);
+$chrome_opts{user_data} = $user_data if $user_data;
+my $chrome = ChromeDriver->new(%chrome_opts);
 $chrome->connect_to_page() or die "Failed to connect: " . $chrome->error . "\n";
 
 my $nav = Page::Navigation->new(chrome => $chrome);

@@ -24,6 +24,8 @@ my $quality = 80;      # Quality for jpeg
 my $max_width;         # Max frame width
 my $max_height;        # Max frame height
 my $fps = 10;          # Approximate frames per second
+my $headless = 1;
+my $user_data = '';
 my $help = 0;
 
 GetOptions(
@@ -34,6 +36,8 @@ GetOptions(
     'max-width=i'  => \$max_width,
     'max-height=i' => \$max_height,
     'fps=i'        => \$fps,
+    'no-headless'  => sub { $headless = 0 },
+    'user-data=s'  => \$user_data,
     'help'         => \$help,
 ) or die "Error in command line arguments\n";
 
@@ -55,6 +59,8 @@ Options:
   --max-width=N        Maximum frame width
   --max-height=N       Maximum frame height
   --fps=N              Approximate frames per second (default: 10)
+  --no-headless        Run Chrome with visible window (for interactive use)
+  --user-data=PATH     Chrome profile directory (preserves cookies/login)
   --help               Show this help
 
 Examples:
@@ -96,7 +102,9 @@ unless ($format =~ /^(jpeg|png)$/) {
 my $ext = $format eq 'jpeg' ? 'jpg' : 'png';
 
 # Connect to Chrome
-my $chrome = ChromeDriver->new(headless => 1, timeout => 60);
+my %chrome_opts = (headless => $headless, timeout => 60, keep_running => 1);
+$chrome_opts{user_data} = $user_data if $user_data;
+my $chrome = ChromeDriver->new(%chrome_opts);
 $chrome->connect_to_page() or die "Failed to connect: " . $chrome->error . "\n";
 
 my $nav = Page::Navigation->new(chrome => $chrome);
