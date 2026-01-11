@@ -25,6 +25,8 @@ my $quality = 80;
 my $width = 0;
 my $height = 0;
 my $max_dimension = 8000;
+my $wait = 0;
+my $wait_for = '';
 my $help = 0;
 
 GetOptions(
@@ -35,6 +37,8 @@ GetOptions(
     'width=i'         => \$width,
     'height=i'        => \$height,
     'max-dimension=i' => \$max_dimension,
+    'wait=i'          => \$wait,
+    'wait-for=s'      => \$wait_for,
     'help'            => \$help,
 ) or die "Error in command line arguments\n";
 
@@ -54,6 +58,8 @@ Options:
   --width=N          Viewport width in pixels
   --height=N         Viewport height in pixels
   --max-dimension=N  Max output dimension in pixels (default: 8000, auto-scales)
+  --wait=N           Wait N seconds after page load (for SPAs with async data)
+  --wait-for=CSS     Wait for CSS selector to appear before screenshot
   --help             Show this help
 
 Examples:
@@ -61,6 +67,8 @@ Examples:
   screenshot https://example.com /tmp/page.png
   screenshot https://example.com --full-page --format=jpeg
   screenshot https://example.com --selector="article.main"
+  screenshot https://example.com --wait=5                     # wait 5 sec for JS to load data
+  screenshot https://example.com --wait-for="img[src*=cdn]"   # wait for images to load
 USAGE
     exit($help ? 0 : 1);
 }
@@ -88,6 +96,16 @@ if ($width && $height) {
 
 # Navigate to URL
 $nav->navigate($url) or die "Failed to navigate: " . $nav->error . "\n";
+
+# Wait for selector if specified
+if ($wait_for) {
+    $nav->wait_for_selector($wait_for, 30) or warn "Selector '$wait_for' not found\n";
+}
+
+# Wait additional time if specified (for SPAs with async data loading)
+if ($wait > 0) {
+    sleep($wait);
+}
 
 # Take screenshot
 my %opts = (

@@ -8,6 +8,63 @@ use CDP::Events;
 # Chrome DevTools Protocol Handler
 # Manages CDP commands, responses, and events
 
+# Known CDP boolean parameter names
+# These will be auto-converted from Perl integers (0/1) to JSON booleans
+my %BOOLEAN_PARAMS = map { $_ => 1 } qw(
+    returnByValue
+    userGesture
+    includeCommandLineAPI
+    awaitPromise
+    generatePreview
+    silent
+    throwOnSideEffect
+    disableBreaks
+    replMode
+    allowUnsafeEvalBlockedByCSR
+    serializationOptions
+    ownProperties
+    accessorPropertiesOnly
+    generatePreview
+    nonIndexedPropertiesOnly
+    ignoreCache
+    captureBeyondViewport
+    fromSurface
+    optimizeForSpeed
+    landscape
+    displayHeaderFooter
+    printBackground
+    preferCSSPageSize
+    transferMode
+    mobile
+    fitWindow
+    screenOrientation
+    dontSetVisibleSize
+    secure
+    httpOnly
+    sameSite
+    sameParty
+    partitionKey
+    enabled
+    bypass
+    offline
+    latency
+    downloadThroughput
+    uploadThroughput
+    cacheDisabled
+    blockedReason
+    cors
+    bypassCSP
+    waitForDebuggerOnStart
+    flatten
+    reportAnonymousScripts
+    useNativeFunctions
+    instrumentationEnabled
+    continueToLocation
+    propagateVisualViewportResize
+    resetScrollAndPageScaleFactor
+    screencastFrameAck
+);
+
 sub new {
     my ($class, %opts) = @_;
 
@@ -52,6 +109,25 @@ sub connect {
     return 1;
 }
 
+# Convert Perl integers to JSON booleans for known boolean parameters
+sub _sanitize_booleans {
+    my ($params) = @_;
+    return unless ref $params eq 'HASH';
+
+    for my $key (keys %$params) {
+        my $val = $params->{$key};
+
+        # Recursively handle nested hashes
+        if (ref $val eq 'HASH') {
+            _sanitize_booleans($val);
+        }
+        # Convert known boolean params from integers to JSON booleans
+        elsif ($BOOLEAN_PARAMS{$key} && defined $val && !ref $val) {
+            $params->{$key} = $val ? JSON::PP::true : JSON::PP::false;
+        }
+    }
+}
+
 # Send a CDP command and wait for response
 sub send {
     my ($self, $method, $params, %opts) = @_;
@@ -62,6 +138,9 @@ sub send {
         $self->{error} = "Not connected";
         return undef;
     }
+
+    # Sanitize boolean parameters
+    _sanitize_booleans($params) if $params;
 
     # Build message
     my $id = ++$self->{message_id};
@@ -126,6 +205,9 @@ sub send_async {
         $self->{error} = "Not connected";
         return 0;
     }
+
+    # Sanitize boolean parameters
+    _sanitize_booleans($params) if $params;
 
     my $id = ++$self->{message_id};
     my $message = {
