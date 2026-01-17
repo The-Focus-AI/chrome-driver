@@ -21,16 +21,21 @@ A Claude Code plugin that enables LLMs to interact with web pages through Chrome
 
 ### Install Plugin
 
-**Via Claude Code Marketplace (Recommended):**
+**Via Focus Marketplace (Recommended):**
 ```bash
-# In Claude Code, run:
-/install-plugin https://github.com/Focus-AI/chrome-driver
+# Add the Focus marketplace (if not already added)
+/plugin marketplace add The-Focus-AI/claude-marketplace
+
+# Install the plugin
+/plugin install chrome-driver@focus-marketplace
 ```
+
+Then restart Claude Code.
 
 **Manual Installation:**
 ```bash
 # Clone repository
-git clone https://github.com/Focus-AI/chrome-driver
+git clone https://github.com/The-Focus-AI/chrome-driver
 cd chrome-driver
 
 # The plugin is self-contained in .claude-plugin/
