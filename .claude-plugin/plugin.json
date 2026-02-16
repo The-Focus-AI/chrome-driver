@@ -17,20 +17,20 @@
     "perl"
   ],
   "skills": [
-    "./.claude-plugin/skills/browser-automation"
+    "./skills/browser-automation"
   ],
   "commands": [
-    "./.claude-plugin/commands/browser.md",
-    "./.claude-plugin/commands/screenshot.md",
-    "./.claude-plugin/commands/pdf.md",
-    "./.claude-plugin/commands/extract.md",
-    "./.claude-plugin/commands/navigate.md",
-    "./.claude-plugin/commands/interact.md",
-    "./.claude-plugin/commands/form.md",
-    "./.claude-plugin/commands/record.md",
-    "./.claude-plugin/commands/cookies.md"
+    "./commands/browser.md",
+    "./commands/screenshot.md",
+    "./commands/pdf.md",
+    "./commands/extract.md",
+    "./commands/navigate.md",
+    "./commands/interact.md",
+    "./commands/form.md",
+    "./commands/record.md",
+    "./commands/cookies.md"
   ],
   "hooks": [
-    "./.claude-plugin/hooks/hooks.json"
+    "./hooks/hooks.json"
   ]
 }
