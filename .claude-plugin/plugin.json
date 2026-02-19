@@ -1,6 +1,6 @@
 {
   "name": "chrome-driver",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Interact with web pages via Chrome DevTools Protocol using pure Perl",
   "author": {
     "name": "Focus AI"

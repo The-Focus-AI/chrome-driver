@@ -1,4 +1,5 @@
 ---
+name: browser-automation
 description: Automate Chrome browser via DevTools Protocol. Use when user asks to scrape websites, take screenshots, generate PDFs, interact with web pages, extract content, fill forms, or automate browser tasks.
 ---
 
